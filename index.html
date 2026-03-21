@@ -43,25 +43,33 @@
     <header class="w-full max-w-7xl mx-auto glass-panel rounded-2xl p-6 mb-4 flex flex-col md:flex-row justify-between items-center shadow-lg relative overflow-hidden">
         <div class="absolute -right-20 -top-40 w-80 h-80 bg-blue-600 rounded-full blur-3xl opacity-20"></div>
         <div>
-            <h1 class="text-3xl font-bold gradient-text tracking-tight mb-1">Día D: Analítica Electoral (GitHub Version)</h1>
-            <p class="text-slate-400 text-sm">Cruce Local y Privado: Los datos nunca salen de tu navegador</p>
+            <h1 class="text-3xl font-bold gradient-text tracking-tight mb-1">Día D: Dashboard En Vivo (Google Sheets)</h1>
+            <p class="text-slate-400 text-sm">Sincronización directa desde Google Drive</p>
         </div>
-        <div id="statusBadge" class="mt-4 md:mt-0 px-4 py-2 rounded-full badge-red text-sm font-medium flex items-center gap-2">
-            <span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
-            Esperando Archivos...
+        <div id="statusBadge" class="mt-4 md:mt-0 px-4 py-2 rounded-full badge-yellow text-sm font-medium flex items-center gap-2">
+            <span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span></span>
+            Conectando con Google Sheets...
         </div>
     </header>
 
-    <!-- File Upload Section -->
-    <section class="w-full max-w-7xl mx-auto mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="glass-panel rounded-2xl p-5 border-dashed border-2 border-slate-700 hover:border-blue-500 transition-colors">
-            <label class="block text-slate-400 text-xs font-semibold uppercase mb-3 tracking-wider">1. Cargar Excel Día D (Proyecciones)</label>
-            <input type="file" id="fileDiaD" accept=".xlsx, .xls" class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700">
+    <!-- Google Sheets Configuration Section -->
+    <section class="w-full max-w-7xl mx-auto mb-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div class="glass-panel rounded-2xl p-4 md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1 tracking-wider">URL Google Sheets: Día D (Proyecciones)</label>
+                <input type="text" id="urlDiaD" class="w-full bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 focus:ring-1 focus:ring-blue-500 outline-none" 
+                       value="https://docs.google.com/spreadsheets/d/1778ou7qmVONTRw_jP7d64RdRN8n0gjlDOAEKEhBIicU/edit?gid=0#gid=0">
+            </div>
+            <div>
+                <label class="block text-slate-400 text-[10px] font-bold uppercase mb-1 tracking-wider">URL Google Sheets: Resultados E-14 (OCR)</label>
+                <input type="text" id="urlE14" class="w-full bg-slate-900/50 border border-slate-700 text-slate-300 text-xs rounded-lg px-3 py-2 focus:ring-1 focus:ring-emerald-500 outline-none" 
+                       value="https://docs.google.com/spreadsheets/d/1K5IB7SxWbq9b2s29Tblta4QLjpYrdTPc-2_6BVNYRww/edit?gid=0#gid=0">
+            </div>
         </div>
-        <div class="glass-panel rounded-2xl p-5 border-dashed border-2 border-slate-700 hover:border-emerald-500 transition-colors">
-            <label class="block text-slate-400 text-xs font-semibold uppercase mb-3 tracking-wider">2. Cargar Excel Resultados E-14 (OCR)</label>
-            <input type="file" id="fileE14" accept=".xlsx, .xls" class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700">
-        </div>
+        <button id="btnSync" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            Sincronizar Datos
+        </button>
     </section>
 
     <!-- Controls Container -->

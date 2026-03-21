@@ -7,7 +7,7 @@ let e14ByMesa = {};
 const STOP_WORDS = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'en', 'ie', 'col', 'colegio', 'institucion', 'educativa', 'educativo', 'instituto', 'escuela', 'sede', 'puesto', 'and', 'the', 'num', 'no']);
 
 const ABBREV_EXPAND = {
-    'lv': 'laura vicuna', 'l v': 'laura vicuna', 'cam': 'cam', 'eam': 'administracion publica esap',
+    'lv': 'laura vicuna', 'l v': 'laura vicuna', 'cam': 'cam', 'eam': 'escuela administracion mercadotecnia',
     'iti': 'instituto tecnico industrial', 'esap': 'escuela superior administracion publica', 'imet': 'imet',
     'madre marcelina': 'madre marcelina', 'medre marcelina': 'madre marcelina', 'estadio': 'estadio centenario',
     'ciudad sur': 'ciudadela del sur', 'ciudadela del sur': 'ciudadela del sur', 'zuldemaida': 'zuldemayda',
@@ -17,6 +17,15 @@ const ABBREV_EXPAND = {
 function initDashboard() {
     setupEventListeners();
     initDonutChart();
+    
+    // Load saved URLs if any
+    const savedDiaD = localStorage.getItem('urlDiaD');
+    const savedE14 = localStorage.getItem('urlE14');
+    if (savedDiaD) document.getElementById('urlDiaD').value = savedDiaD;
+    if (savedE14) document.getElementById('urlE14').value = savedE14;
+
+    // Auto-sync on load
+    syncData();
 }
 
 function initDonutChart() {
@@ -46,43 +55,67 @@ function updateDonutChart(green, yellow, red, gray) {
 }
 
 function setupEventListeners() {
-    document.getElementById('fileDiaD').addEventListener('change', handleFileDiaD);
-    document.getElementById('fileE14').addEventListener('change', handleFileE14);
+    document.getElementById('btnSync').addEventListener('click', syncData);
     document.getElementById('leaderSelect').addEventListener('change', renderDashboard);
     document.getElementById('candidateSelect').addEventListener('change', renderDashboard);
     document.getElementById('includePartyToggle').addEventListener('change', renderDashboard);
 }
 
-async function handleFileDiaD(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    dataDiaD = await readExcel(file);
-    processDataIfBothLoaded();
+function toCsvUrl(url) {
+    if (!url.includes('docs.google.com')) return url;
+    const idMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    const gidMatch = url.match(/gid=([0-9]+)/);
+    if (!idMatch) return url;
+    const id = idMatch[1];
+    const gid = gidMatch ? gidMatch[1] : '0';
+    return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
 }
 
-async function handleFileE14(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    dataE14 = await readExcel(file);
-    processDataIfBothLoaded();
-}
-
-function readExcel(file) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            resolve(XLSX.utils.sheet_to_json(sheet));
-        };
-        reader.readAsArrayBuffer(file);
-    });
-}
-
-function processDataIfBothLoaded() {
-    if (!dataDiaD || !dataE14) return;
+async function syncData() {
+    const urlDiaD = document.getElementById('urlDiaD').value.trim();
+    const urlE14 = document.getElementById('urlE14').value.trim();
     
+    if (!urlDiaD || !urlE14) return;
+
+    localStorage.setItem('urlDiaD', urlDiaD);
+    localStorage.setItem('urlE14', urlE14);
+
+    setStatus('Sincronizando...', 'yellow', true);
+
+    try {
+        const [resDiaD, resE14] = await Promise.all([
+            fetch(toCsvUrl(urlDiaD)).then(r => r.ok ? r.text() : Promise.reject('Error Día D')),
+            fetch(toCsvUrl(urlE14)).then(r => r.ok ? r.text() : Promise.reject('Error E-14'))
+        ]);
+
+        dataDiaD = parseCSV(resDiaD);
+        dataE14 = parseCSV(resE14);
+
+        processData();
+        setStatus('Datos Listos', 'green', false);
+    } catch (err) {
+        console.error(err);
+        setStatus('Error de Conexión', 'red', false);
+        alert('Error: Asegúrate de que las hojas de cálculo estén "Publicadas en la Web" o que "Cualquier persona con el enlace pueda ver".');
+    }
+}
+
+function parseCSV(csvText) {
+    const workbook = XLSX.read(csvText, { type: 'string' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    return XLSX.utils.sheet_to_json(sheet);
+}
+
+function setStatus(text, color, anim) {
+    const b = document.getElementById('statusBadge');
+    b.className = `mt-4 md:mt-0 px-4 py-2 rounded-full badge-${color} text-sm font-medium flex items-center gap-2`;
+    b.innerHTML = `<span class="relative flex h-3 w-3">
+        ${anim ? '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-'+color+'-400 opacity-75"></span>' : ''}
+        <span class="relative inline-flex rounded-full h-3 w-3 bg-${color}-500"></span>
+    </span> ${text}`;
+}
+
+function processData() {
     // Index E14 by Mesa
     e14ByMesa = {};
     dataE14.forEach(row => {
@@ -128,7 +161,6 @@ function processDataIfBothLoaded() {
         }
     }
 
-    // Shared Leaders
     const mesaLeaderIdx = {};
     dataDiaD.forEach(r => {
         const key = `${r['Puesto de Votacion '].toString().trim()}|${parseInt(r['Mesa'])}`;
@@ -143,10 +175,6 @@ function processDataIfBothLoaded() {
     }
 
     rawData = { status: 'success', leaders: leaderResults, leaderNames: Object.keys(leaderResults).sort() };
-    
-    document.getElementById('statusBadge').innerHTML = '<span class="relative flex h-3 w-3"><span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span></span> Datos Listos';
-    document.getElementById('statusBadge').className = 'mt-4 md:mt-0 px-4 py-2 rounded-full badge-green text-sm font-medium flex items-center gap-2';
-    
     populateLeaders();
 }
 
@@ -172,10 +200,13 @@ function findE14Match(puesto, mesa) {
 
 function populateLeaders() {
     const s = document.getElementById('leaderSelect');
+    const current = s.value;
     s.innerHTML = '<option value="">Selecciona un líder...</option>';
     rawData.leaderNames.forEach(l => {
         const o = document.createElement('option'); o.value = l; o.textContent = l; s.appendChild(o);
     });
+    if (rawData.leaders[current]) s.value = current;
+    renderDashboard();
 }
 
 function getVotesFromE14(e14, candidateId, includeParty) {
@@ -193,7 +224,7 @@ function renderDashboard() {
     const cid = document.getElementById('candidateSelect').value;
     const incP = document.getElementById('includePartyToggle').checked;
     const tb = document.getElementById('resultsTableBody');
-    if (!leader) { tb.innerHTML = '<tr><td colspan="6" class="py-12 text-center text-slate-500 italic">Carga archivos y selecciona líder.</td></tr>'; return; }
+    if (!leader) { tb.innerHTML = '<tr><td colspan="6" class="py-12 text-center text-slate-500 italic">Cargando datos de Google Sheets...</td></tr>'; return; }
     
     const lData = rawData.leaders[leader];
     let tMeta = 0, tReal = 0, g=0, y=0, r=0, gr=0, sc=0, mCub=0;
