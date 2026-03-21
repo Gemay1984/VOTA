@@ -96,9 +96,9 @@ async function syncData() {
         processData();
         setStatus('Datos Listos', 'green', false);
     } catch (err) {
-        console.error(err);
+        console.error('Error de Sincronización:', err);
         setStatus('Error de Conexión', 'red', false);
-        alert('Error: Asegúrate de que las hojas estén publicadas o que el Script de Google esté implementado como "Cualquier persona".');
+        alert('Error: ' + err.message + '\n\nPosibles causas:\n1. El script no está implementado como "Cualquier persona".\n2. No has autorizado los permisos en Google Sheets.\n3. La URL es incorrecta o el archivo no existe.');
     }
 }
 
