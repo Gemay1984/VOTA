@@ -18,11 +18,9 @@ function initDashboard() {
     setupEventListeners();
     initDonutChart();
     
-    // Load saved URLs if any
-    const savedDiaD = localStorage.getItem('urlDiaD');
-    const savedE14 = localStorage.getItem('urlE14');
-    if (savedDiaD) document.getElementById('urlDiaD').value = savedDiaD;
-    if (savedE14) document.getElementById('urlE14').value = savedE14;
+    // Load saved API URL if any
+    const savedApiUrl = localStorage.getItem('apiUrl');
+    if (savedApiUrl) document.getElementById('apiUrl').value = savedApiUrl;
 
     // Auto-sync on load
     syncData();
@@ -61,62 +59,36 @@ function setupEventListeners() {
     document.getElementById('includePartyToggle').addEventListener('change', renderDashboard);
 }
 
-function toCsvUrl(url) {
-    if (!url.includes('docs.google.com')) return url;
-    const idMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-    const gidMatch = url.match(/gid=([0-9]+)/);
-    if (!idMatch) return url;
-    const id = idMatch[1];
-    const gid = gidMatch ? gidMatch[1] : '0';
-    return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${gid}`;
-}
-
 async function syncData() {
-    const urlDiaD = document.getElementById('urlDiaD').value.trim();
-    const urlE14 = document.getElementById('urlE14').value.trim();
-    
-    if (!urlDiaD || !urlE14) return;
+    const apiUrl = document.getElementById('apiUrl').value.trim();
+    if (!apiUrl) return;
 
-    localStorage.setItem('urlDiaD', urlDiaD);
-    localStorage.setItem('urlE14', urlE14);
-
+    localStorage.setItem('apiUrl', apiUrl);
     setStatus('Sincronizando...', 'yellow', true);
 
     try {
-        const [resDiaD, resE14] = await Promise.all([
-            fetch(toCsvUrl(urlDiaD)).then(r => r.ok ? r.text() : Promise.reject('Error Día D')),
-            fetch(toCsvUrl(urlE14)).then(r => r.ok ? r.text() : Promise.reject('Error E-14'))
-        ]);
+        const res = await fetch(apiUrl).then(r => r.ok ? r.json() : Promise.reject('Error de conexión con el script'));
 
-        dataDiaD = smartParse(resDiaD);
-        dataE14 = smartParse(resE14);
+        if (res.error) throw new Error(res.error);
+        if (!res.diad || !res.e14) throw new Error('Respuesta del script incompleta');
 
-        if (dataDiaD.error || dataE14.error) throw new Error('Error en el script de Google');
+        dataDiaD = res.diad;
+        dataE14 = res.e14;
 
         processData();
         setStatus('Datos Listos', 'green', false);
     } catch (err) {
         console.error('Error de Sincronización:', err);
         setStatus('Error de Conexión', 'red', false);
-        alert('Error: ' + err.message + '\n\nPosibles causas:\n1. El script no está implementado como "Cualquier persona".\n2. No has autorizado los permisos en Google Sheets.\n3. La URL es incorrecta o el archivo no existe.');
+        alert('Error: ' + err.message + '\n\nPosibles causas:\n1. El script no está implementado como "Cualquier persona".\n2. Los IDs de los archivos en el script son incorrectos.\n3. Los archivos no tienen permiso de lectura para el script.');
     }
-}
-
-function smartParse(text) {
-    text = text.trim();
-    if (text.startsWith('[') || text.startsWith('{')) {
-        return JSON.parse(text);
-    }
-    const workbook = XLSX.read(text, { type: 'string' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    return XLSX.utils.sheet_to_json(sheet);
 }
 
 function setStatus(text, color, anim) {
     const b = document.getElementById('statusBadge');
     b.className = `mt-4 md:mt-0 px-4 py-2 rounded-full badge-${color} text-sm font-medium flex items-center gap-2`;
     b.innerHTML = `<span class="relative flex h-3 w-3">
-        ${anim ? '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-'+color+'-400 opacity-75"></span>' : ''}
+        ${anim ? '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>' : ''}
         <span class="relative inline-flex rounded-full h-3 w-3 bg-${color}-500"></span>
     </span> ${text}`;
 }
@@ -127,7 +99,7 @@ function processData() {
     dataE14.forEach(row => {
         const mesa = parseInt(row['Mesa']) || 0;
         const zona = row['Zona'] || '';
-        const parts = zona.replace(/\\/g, '/').split('/');
+        const parts = zona.toString().replace(/\\/g, '/').split('/');
         const folderWords = getKeyWords((parts[parts.length - 1] || '') + ' ' + (parts[parts.length-2] || ''));
         if (!e14ByMesa[mesa]) e14ByMesa[mesa] = [];
         e14ByMesa[mesa].push({ folderWords, row });
