@@ -1,48 +1,33 @@
-# E-14 Electoral Comparison Dashboard
+# E-14 Electoral Comparison Dashboard (Serverless Version)
 
-This application compares projected voter data from a "Día D" Excel file against actual voting results extracted from E-14 PDFs using Gemini's Vision API.
+Este Dashboard permite comparar las proyecciones de votantes de un archivo Excel contra los resultados reales de los formularios E-14, procesando todo **directamente en el navegador**.
 
-## Features
-- **PDF Extraction**: Automated data extraction from handwritten E-14 forms using Google Gemini Pro Vision.
-- **Smart Matching**: Fuzzy logic and keyword-based identification of voting venues between Día D and E-14 files.
-- **Visual Dashboard**: Real-time effectiveness metrics, individual voter tracking, and "shared leader" alerts.
-- **Semaphore System**: Visual green/red indicators for vote-counting benchmarks.
+## 🚀 Acceso Rápido (GitHub Pages)
 
-## Setup
+Puedes usar la aplicación directamente aquí:  
+**[https://Gemay1984.github.io/VOTA/](https://Gemay1984.github.io/VOTA/)**
 
-1. **Clone the repository**:
-   ```bash
-   git clone <your-repo-url>
-   cd quindio/pdf_processor
-   ```
+## ✨ Características Especiales
+- **Privacidad Total**: Los datos de tus archivos Excel nunca salen de tu computadora. Todo el cruce y el análisis se hace en la memoria de tu navegador.
+- **Emparejamiento Inteligente**: Sistema de búsqueda aproximada para encontrar puestos de votación con nombres abreviados.
+- **Visualización Gráfica**: Gráfico de rosca para efectividad general y listado de votantes por mesa.
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
+## 🛠️ Cómo Usar
 
-3. **Configure the environment**:
-   Create a `.env` file in the `pdf_processor` folder:
-   ```env
-   GEMINI_API_KEY=your_google_ai_studio_api_key
-   ```
+1. **Abre la App**: Ve al enlace de GitHub Pages mencionado arriba.
+2. **Carga los Archivos**:
+   - Pulsa el botón azul para cargar tu archivo de **Día D (Proyecciones)**.
+   - Pulsa el botón verde para cargar tu archivo de **Resultados E-14 (OCR)**.
+3. **Analiza**: Selecciona un líder y un candidato para ver el desglose inmediato.
 
-4. **Prepare Data**:
-   Place your files in the root folder (`../` relative to `pdf_processor`):
-   - `dia d (9).xlsx`
-   - `Resultados_E14_Gemini_Final.xlsx`
+## 💻 Desarrollo Local (Node.js)
 
-5. **Run the dashboard**:
-   ```bash
-   node server_dashboard.js
-   ```
-   Open `http://localhost:4000` in your browser.
+Si prefieres usar el extractor de PDFs o correr el servidor localmente:
 
-## Technologies
-- **Backend**: Node.js, Express.
-- **OCR/AI**: Google Gemini.
-- **Frontend**: Tailwind CSS, Chart.js.
-- **Storage**: Excel (via `xlsx` library).
+1. **Instala dependencias**: `npm install`
+2. **Configura el API**: Crea un archivo `.env` con tu `GEMINI_API_KEY`.
+3. **Extrae datos**: `node gemini_extractor.js`
+4. **Dashboard Local**: Abre `index.html` directamente en tu navegador o usa un live server.
 
 > [!IMPORTANT]
-> This repository contains only the application code. Data files (.xlsx, .pdf) containing personal voter information are excluded for security.
+> Este repositorio NO contiene datos reales. Debes cargar tus propios archivos Excel para ver resultados.

@@ -7,6 +7,7 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -39,17 +40,29 @@
 <body class="min-h-screen flex flex-col pt-6 pb-20 px-4 md:px-8">
     
     <!-- Header -->
-    <header class="w-full max-w-7xl mx-auto glass-panel rounded-2xl p-6 mb-8 flex flex-col md:flex-row justify-between items-center shadow-lg relative overflow-hidden">
+    <header class="w-full max-w-7xl mx-auto glass-panel rounded-2xl p-6 mb-4 flex flex-col md:flex-row justify-between items-center shadow-lg relative overflow-hidden">
         <div class="absolute -right-20 -top-40 w-80 h-80 bg-blue-600 rounded-full blur-3xl opacity-20"></div>
         <div>
-            <h1 class="text-3xl font-bold gradient-text tracking-tight mb-1">Día D: Analítica Electoral</h1>
-            <p class="text-slate-400 text-sm">Cruce Inteligente de Proyección vs E-14 OCR</p>
+            <h1 class="text-3xl font-bold gradient-text tracking-tight mb-1">Día D: Analítica Electoral (GitHub Version)</h1>
+            <p class="text-slate-400 text-sm">Cruce Local y Privado: Los datos nunca salen de tu navegador</p>
         </div>
-        <div id="statusBadge" class="mt-4 md:mt-0 px-4 py-2 rounded-full badge-yellow text-sm font-medium flex items-center gap-2">
-            <span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span></span>
-            Cargando Base de Datos...
+        <div id="statusBadge" class="mt-4 md:mt-0 px-4 py-2 rounded-full badge-red text-sm font-medium flex items-center gap-2">
+            <span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
+            Esperando Archivos...
         </div>
     </header>
+
+    <!-- File Upload Section -->
+    <section class="w-full max-w-7xl mx-auto mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="glass-panel rounded-2xl p-5 border-dashed border-2 border-slate-700 hover:border-blue-500 transition-colors">
+            <label class="block text-slate-400 text-xs font-semibold uppercase mb-3 tracking-wider">1. Cargar Excel Día D (Proyecciones)</label>
+            <input type="file" id="fileDiaD" accept=".xlsx, .xls" class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700">
+        </div>
+        <div class="glass-panel rounded-2xl p-5 border-dashed border-2 border-slate-700 hover:border-emerald-500 transition-colors">
+            <label class="block text-slate-400 text-xs font-semibold uppercase mb-3 tracking-wider">2. Cargar Excel Resultados E-14 (OCR)</label>
+            <input type="file" id="fileE14" accept=".xlsx, .xls" class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700">
+        </div>
+    </section>
 
     <!-- Controls Container -->
     <main class="w-full max-w-7xl mx-auto flex flex-col gap-6">
