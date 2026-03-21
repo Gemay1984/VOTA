@@ -88,20 +88,26 @@ async function syncData() {
             fetch(toCsvUrl(urlE14)).then(r => r.ok ? r.text() : Promise.reject('Error E-14'))
         ]);
 
-        dataDiaD = parseCSV(resDiaD);
-        dataE14 = parseCSV(resE14);
+        dataDiaD = smartParse(resDiaD);
+        dataE14 = smartParse(resE14);
+
+        if (dataDiaD.error || dataE14.error) throw new Error('Error en el script de Google');
 
         processData();
         setStatus('Datos Listos', 'green', false);
     } catch (err) {
         console.error(err);
         setStatus('Error de Conexión', 'red', false);
-        alert('Error: Asegúrate de que las hojas de cálculo estén "Publicadas en la Web" o que "Cualquier persona con el enlace pueda ver".');
+        alert('Error: Asegúrate de que las hojas estén publicadas o que el Script de Google esté implementado como "Cualquier persona".');
     }
 }
 
-function parseCSV(csvText) {
-    const workbook = XLSX.read(csvText, { type: 'string' });
+function smartParse(text) {
+    text = text.trim();
+    if (text.startsWith('[') || text.startsWith('{')) {
+        return JSON.parse(text);
+    }
+    const workbook = XLSX.read(text, { type: 'string' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     return XLSX.utils.sheet_to_json(sheet);
 }
