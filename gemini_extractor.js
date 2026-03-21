@@ -40,7 +40,7 @@ Eres un experto en lectura de datos electorales colombianos (formularios E-14).
 Mira las imágenes de este PDF y extrae EXACTAMENTE estos 5 datos estadísticos:
 1. El número de la "Mesa" (en la cabecera).
 2. Los votos "Solo por el partido" del PARTIDO DE LA U.
-3. Los votos para el candidato número 6 del PARTIDO DE LA U.
+3. Los votos para el candidato número 7 del PARTIDO DE LA U.
 4. Los votos "Solo por el partido" del PARTIDO CONSERVADOR.
 5. Los votos para el candidato número 11 del PARTIDO CONSERVADOR.
 
@@ -48,7 +48,7 @@ Devuelve ESTRICTAMENTE un JSON con esta estructura exacta y sin formato extra:
 {
   "Mesa": "numero o No encontrada",
   "U_SoloPartido": "numero o No encontrado",
-  "U_6": "numero o No encontrado",
+  "U_7": "numero o No encontrado",
   "Con_SoloPartido": "numero o No encontrado",
   "Con_11": "numero o No encontrado"
 }`;
@@ -75,7 +75,7 @@ Devuelve ESTRICTAMENTE un JSON con esta estructura exacta y sin formato extra:
     } catch (e) {
         // En cuenta de paga, los errores serán mínimos, pero capturamos por si acaso
         console.error(`Error procesando ${filePath}:`, e.message);
-        return { Mesa: "Error", U_SoloPartido: "Error", U_6: "Error", Con_SoloPartido: "Error", Con_11: "Error" };
+        return { Mesa: "Error", U_SoloPartido: "Error", U_7: "Error", Con_SoloPartido: "Error", Con_11: "Error" };
     }
 }
 
@@ -129,7 +129,7 @@ async function main() {
                 "Zona": path.dirname(file).replace(BASE_DIR, ''),
                 "Mesa": data.Mesa,
                 "Partido de la U (Solo Partido)": data.U_SoloPartido,
-                "Partido de la U (Cand 6)": data.U_6,
+                "Partido de la U (Cand 7)": data.U_7,
                 "Conservador (Solo Partido)": data.Con_SoloPartido,
                 "Conservador (Cand 11)": data.Con_11
             };

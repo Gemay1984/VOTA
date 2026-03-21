@@ -129,7 +129,7 @@ function processData() {
                     puesto, mesa: parseInt(mesa), voters: data.voters, proyectados: data.voters.length,
                     e14: e14Match ? {
                         uSoloPartido: parseInt(e14Match['Partido de la U (Solo Partido)']) || 0,
-                        uCand6: parseInt(e14Match['Partido de la U (Cand 6)']) || 0,
+                        uCand7: parseInt(e14Match['Partido de la U (Cand 7)']) || 0,
                         conSoloPartido: parseInt(e14Match['Conservador (Solo Partido)']) || 0,
                         conCand11: parseInt(e14Match['Conservador (Cand 11)']) || 0,
                         zona: e14Match['Zona']
@@ -190,7 +190,7 @@ function populateLeaders() {
 function getVotesFromE14(e14, candidateId, includeParty) {
     if (!e14) return null;
     let cv = 0, pv = 0;
-    if (candidateId === 'U_6') { cv = e14.uCand6; pv = e14.uSoloPartido; }
+    if (candidateId === 'U_7') { cv = e14.uCand7; pv = e14.uSoloPartido; }
     else if (candidateId === 'U_Solo') { pv = e14.uSoloPartido; }
     else if (candidateId === 'Con_11') { cv = e14.conCand11; pv = e14.conSoloPartido; }
     else if (candidateId === 'Con_Solo') { pv = e14.conSoloPartido; }
