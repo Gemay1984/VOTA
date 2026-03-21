@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Efectividad Día D</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkblue: '#0b1120',
+                        glass: 'rgba(255, 255, 255, 0.05)',
+                        card: 'rgba(30, 41, 59, 0.7)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #0b1120; color: #f8fafc; overflow-x: hidden; }
+        .glass-panel { background: rgba(30, 41, 59, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+        .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); }
+        .badge-green { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .badge-red { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+        .badge-yellow { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .gradient-text { background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-image: linear-gradient(to right, #38bdf8, #818cf8); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col pt-6 pb-20 px-4 md:px-8">
+    
+    <!-- Header -->
+    <header class="w-full max-w-7xl mx-auto glass-panel rounded-2xl p-6 mb-8 flex flex-col md:flex-row justify-between items-center shadow-lg relative overflow-hidden">
+        <div class="absolute -right-20 -top-40 w-80 h-80 bg-blue-600 rounded-full blur-3xl opacity-20"></div>
+        <div>
+            <h1 class="text-3xl font-bold gradient-text tracking-tight mb-1">Día D: Analítica Electoral</h1>
+            <p class="text-slate-400 text-sm">Cruce Inteligente de Proyección vs E-14 OCR</p>
+        </div>
+        <div id="statusBadge" class="mt-4 md:mt-0 px-4 py-2 rounded-full badge-yellow text-sm font-medium flex items-center gap-2">
+            <span class="relative flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span></span>
+            Cargando Base de Datos...
+        </div>
+    </header>
+
+    <!-- Controls Container -->
+    <main class="w-full max-w-7xl mx-auto flex flex-col gap-6">
+        
+        <!-- Filters -->
+        <section class="glass-panel rounded-2xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+            <div>
+                <label class="block text-slate-400 text-xs font-semibold uppercase mb-2 tracking-wider">Líder (Usuario)</label>
+                <select id="leaderSelect" class="w-full bg-slate-800/50 border border-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none disabled:opacity-50">
+                    <option value="">Selecciona un líder...</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-slate-400 text-xs font-semibold uppercase mb-2 tracking-wider">Candidato / Lista a Evaluar</label>
+                <select id="candidateSelect" class="w-full bg-slate-800/50 border border-slate-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none disabled:opacity-50">
+                    <option value="U_6">Partido de la U (Cand 6)</option>
+                    <option value="U_Solo">Partido de la U (Solo Partido)</option>
+                    <option value="Con_11">Partido Conservador (Cand 11)</option>
+                    <option value="Con_Solo">Partido Conservador (Solo Partido)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-slate-400 text-xs font-semibold uppercase mb-2 tracking-wider">Incluir Votos del Partido</label>
+                <div class="h-12 flex items-center">
+                    <label class="flex items-center cursor-pointer relative">
+                        <input type="checkbox" id="includePartyToggle" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                        <span class="ml-3 text-sm font-medium text-slate-300">Sumar Lista al Candidato</span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="glass-panel rounded-2xl p-6 stat-card flex flex-col justify-center relative overflow-hidden border-l-4 border-l-blue-500">
+                <span class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Meta Proyectada</span>
+                <span id="kpiMeta" class="text-4xl font-bold mt-2 text-white">0</span>
+                <span class="text-slate-500 text-xs mt-1">Votantes en Día D (Líder)</span>
+            </div>
+            <div class="glass-panel rounded-2xl p-6 stat-card flex flex-col justify-center relative overflow-hidden border-l-4 border-l-slate-400">
+                <span class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Votos E-14 Totales</span>
+                <span id="kpiReal" class="text-4xl font-bold mt-2 text-white">0</span>
+                <span class="text-slate-500 text-xs mt-1">En Mesas del Líder</span>
+            </div>
+            <!-- Donut chart replacing efectividad card -->
+            <div class="glass-panel rounded-2xl p-4 stat-card flex flex-col items-center justify-center col-span-2 relative overflow-hidden border border-slate-700" style="min-height:160px">
+                <span class="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Efectividad General (por Mesas)</span>
+                <div class="flex items-center gap-4 w-full justify-center">
+                    <div style="width:130px;height:130px;position:relative;">
+                        <canvas id="donutChart"></canvas>
+                        <div id="donutCenter" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+                            <div id="donutPct" class="text-2xl font-bold text-white">—</div>
+                            <div class="text-slate-500 text-xs">efectivo</div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2 text-xs">
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span><span class="text-slate-300">🟢 Cubiertas</span><span id="lblGreen" class="font-bold text-white ml-1">0</span></div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-amber-400 inline-block"></span><span class="text-slate-300">🟡 Parciales</span><span id="lblYellow" class="font-bold text-white ml-1">0</span></div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span><span class="text-slate-300">🔴 Sin votos</span><span id="lblRed" class="font-bold text-white ml-1">0</span></div>
+                        <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-slate-600 inline-block"></span><span class="text-slate-300">⚪ Sin datos</span><span id="lblGray" class="font-bold text-white ml-1">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="glass-panel rounded-2xl p-6 stat-card flex flex-col justify-center relative border-l-4 border-l-purple-500">
+                <span class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Mesas Cubiertas</span>
+                <span id="kpiAciertos" class="text-4xl font-bold mt-2 text-purple-400">0</span>
+                <span class="text-slate-500 text-xs mt-1">Mesas al 100%</span>
+            </div>
+            <div class="glass-panel rounded-2xl p-6 stat-card flex flex-col justify-center relative border-l-4 border-l-amber-500">
+                <span class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Mesas Compartidas</span>
+                <span id="kpiShared" class="text-4xl font-bold mt-2 text-amber-400">0</span>
+                <span class="text-slate-500 text-xs mt-1">Mesas con otros líderes</span>
+            </div>
+        </section>
+
+        <!-- Detailed Table -->
+        <section class="glass-panel rounded-2xl overflow-hidden mt-4">
+            <div class="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/30">
+                <h3 class="text-lg font-semibold text-white">Detalle de Eficacia por Mesa</h3>
+                <span id="tableCount" class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">0 Registros</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900/50 text-slate-400 uppercase text-xs tracking-wider border-b border-slate-700">
+                            <th class="py-4 px-6 font-semibold">Puesto de Votación</th>
+                            <th class="py-4 px-6 font-semibold text-center">Mesa</th>
+                            <th class="py-4 px-6 font-semibold">Personas Proyectadas</th>
+                            <th class="py-4 px-6 font-semibold text-center border-l border-slate-700 bg-slate-900/40">Votos E-14 (Real)</th>
+                            <th class="py-4 px-6 font-semibold text-center">Semáforo</th>
+                            <th class="py-4 px-6 font-semibold text-left">Coincidencia Líderes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody" class="text-sm divide-y divide-slate-800">
+                        <tr>
+                            <td colspan="6" class="py-12 text-center text-slate-500 italic">Selecciona un líder para visualizar el desglose geográfico.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        
+    </main>
+    <script src="app.js"></script>
+</body>
+</html>

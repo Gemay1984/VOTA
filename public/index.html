@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extractor E-14 Quindío</title>
+    <!-- pdf.js for rendering PDFs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
+    <!-- Tesseract.js for OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- TailwindCSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+    <div class="max-w-4xl mx-auto p-6">
+        <h1 class="text-3xl font-bold mb-2 text-blue-800">Extractor de Datos E-14</h1>
+        <p class="text-gray-600 mb-6">Esta herramienta leerá todos los PDFs, renderizará las imágenes, y usará Inteligencia Artificial (OCR) para encontrar la <b>Mesa</b> y los votos de <b>Partido de la U (6)</b> y <b>Conservador (11)</b>.</p>
+
+        <div class="flex gap-4 mb-6">
+            <button id="startBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded shadow transition">
+                🚀 Iniciar Extracción
+            </button>
+            <button id="exportBtn" disabled class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded shadow opacity-50 cursor-not-allowed transition">
+                📊 Descargar Excel
+            </button>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <div class="flex justify-between mb-2">
+                <span class="font-semibold text-gray-700">Progreso:</span>
+                <span id="progressText" class="text-blue-600 font-bold">0 / 0</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-4">
+                <div id="progressBar" class="bg-blue-600 h-4 rounded-full" style="width: 0%"></div>
+            </div>
+            <p id="currentFileText" class="text-sm text-gray-500 mt-2 italic">Esperando inicio...</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-200 text-gray-700 uppercase text-sm">
+                        <th class="py-3 px-4 border-b">Archivo / Zona</th>
+                        <th class="py-3 px-4 border-b">Mesa</th>
+                        <th class="py-3 px-4 border-b">U (6)</th>
+                        <th class="py-3 px-4 border-b">Con (11)</th>
+                        <th class="py-3 px-4 border-b">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTable" class="text-sm">
+                    <!-- Results will appear here -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Hidden canvas for rendering PDFs to send to Tesseract -->
+        <canvas id="pdfCanvas" style="display:none;"></canvas>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
