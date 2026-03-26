@@ -36,21 +36,30 @@ async function extractFromPdf(filePath) {
         const pdfBytes = fs.readFileSync(filePath);
         
         const prompt = `
-Eres un experto en lectura de datos electorales colombianos (formularios E-14).
-Mira las imágenes de este PDF y extrae EXACTAMENTE estos 5 datos estadísticos:
-1. El número de la "Mesa" (en la cabecera).
-2. Los votos "Solo por el partido" del PARTIDO DE LA U.
-3. Los votos para el candidato número 7 del PARTIDO DE LA U.
-4. Los votos "Solo por el partido" del PARTIDO CONSERVADOR.
-5. Los votos para el candidato número 11 del PARTIDO CONSERVADOR.
+Mira las imágenes de este PDF (Formulario E-14 de Colombia) y extrae EXACTAMENTE estos datos:
+1. Departamento (ej: QUINDIO)
+2. Municipio (ej: ARMENIA)
+3. Zona (número de 2 dígitos)
+4. Puesto (número de 2 dígitos)
+5. Mesa (número de 3 dígitos)
+6. Lugar (Puesto de votación, ej: IE INSTITUTO TECNICO INDUSTRIAL)
+7. Votos SOLO POR LA LISTA del PARTIDO DE LA U
+8. Votos para el candidato número 7 del PARTIDO DE LA U
+9. Votos SOLO POR LA LISTA del PARTIDO CONSERVADOR
+10. Votos para el candidato número 11 del PARTIDO CONSERVADOR
 
-Devuelve ESTRICTAMENTE un JSON con esta estructura exacta y sin formato extra:
+Responde SOLAMENTE con un objeto JSON (sin markdown, sin texto extra) con esta estructura:
 {
-  "Mesa": "numero o No encontrada",
-  "U_SoloPartido": "numero o No encontrado",
-  "U_7": "numero o No encontrado",
-  "Con_SoloPartido": "numero o No encontrado",
-  "Con_11": "numero o No encontrado"
+  "Departamento": "texto",
+  "Municipio": "texto",
+  "Zona": "numero",
+  "Puesto": "numero",
+  "Mesa": "numero",
+  "Lugar": "texto",
+  "U_SoloLista": "numero",
+  "U_7": "numero",
+  "Con_SoloLista": "numero",
+  "Con_11": "numero"
 }`;
 
         const imageParts = [
@@ -65,7 +74,6 @@ Devuelve ESTRICTAMENTE un JSON con esta estructura exacta y sin formato extra:
         const result = await model.generateContent([prompt, ...imageParts]);
         let text = result.response.text();
         
-        // Extract just the JSON part using Regex in case Gemini adds conversational text like "Aquí está:"
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             text = jsonMatch[0];
@@ -73,7 +81,6 @@ Devuelve ESTRICTAMENTE un JSON con esta estructura exacta y sin formato extra:
 
         return JSON.parse(text.trim());
     } catch (e) {
-        // En cuenta de paga, los errores serán mínimos, pero capturamos por si acaso
         console.error(`Error procesando ${filePath}:`, e.message);
         return { Departamento: "Error", Municipio: "Error", Zona: "Error", Puesto: "Error", Mesa: "Error", Lugar: "Error", U_SoloLista: "Error", U_7: "Error", Con_SoloLista: "Error", Con_11: "Error" };
     }
@@ -82,49 +89,38 @@ Devuelve ESTRICTAMENTE un JSON con esta estructura exacta y sin formato extra:
 async function main() {
     console.log("Buscando archivos PDF E-14...");
     let pdfs = getPdfFiles(BASE_DIR);
+    const initialTotalCount = pdfs.length;
+    const globalBatchStartTime = Date.now();
     
     let results = [];
     const outputFileName = "Resultados_E14_Gemini_Final.xlsx";
     const outputPath = path.join(BASE_DIR, outputFileName);
     
-    // Resume logic: Read existing Excel file to see what we already did
     if (fs.existsSync(outputPath)) {
         try {
-            console.log("Leyendo progreso anterior de " + outputFileName + "...");
+            console.log("Leyendo progreso anterior...");
             const workbook = XLSX.readFile(outputPath);
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             results = XLSX.utils.sheet_to_json(sheet);
-            
-            // Only keep successful results in memory, so errors get re-run and overwritten
-            const initialCount = results.length;
             results = results.filter(r => r["Mesa"] !== "Error");
-            
             const procesados = new Set(results.map(r => r["Archivo"]));
-            
-            const pdfsInicial = pdfs.length;
             pdfs = pdfs.filter(file => !procesados.has(path.basename(file)));
-            
-            console.log(`Descubierto Excel previo: se saltarán ${pdfsInicial - pdfs.length} archivos ya procesados.`);
+            console.log(`Saltando ${initialTotalCount - pdfs.length} archivos ya procesados.`);
         } catch(e) {
-            console.error("No se pudo leer el archivo Excel previo. Puede estar dañado o abierto.", e);
+            console.error("No se pudo leer el archivo previo.");
         }
     }
 
-    console.log(`Encontrados ${pdfs.length} archivos PDF PENDIENTES. Iniciando procesamiento en paralelo (Cuenta Paga API)...`);
+    console.log(`Pendientes: ${pdfs.length} archivos. Iniciando...`);
     
     if (pdfs.length === 0) {
-        console.log("¡Todos los archivos ya fueron procesados!");
+        console.log("¡Todo procesado!");
         return;
     }
     
-    // Chunk array function
-    const CHUNK_SIZE = 15; // Process 15 files at the exact same time
-    
+    const CHUNK_SIZE = 15;
     for (let i = 0; i < pdfs.length; i += CHUNK_SIZE) {
         const chunk = pdfs.slice(i, i + CHUNK_SIZE);
-        console.log(`[Lote ${Math.floor(i/CHUNK_SIZE) + 1}/${Math.ceil(pdfs.length/CHUNK_SIZE)}] Procesando archivos ${i+1} a ${i + chunk.length}...`);
-        
-        // Ejecutar promesas en paralelo
         const chunkResults = await Promise.all(chunk.map(async (file) => {
             const data = await extractFromPdf(file);
             return {
@@ -145,21 +141,37 @@ async function main() {
         
         results.push(...chunkResults);
         
-        console.log(`[>>] Guardando Excel con ${results.length} resultados hasta el momento...`);
+        // Progress Logging
+        const completed = results.length;
+        const total = initialTotalCount;
+        const percent = ((completed / total) * 100).toFixed(1);
+        const elapsed = (Date.now() - globalBatchStartTime) / 1000;
+        const itemsPerSec = completed / (elapsed || 1);
+        const remaining = total - completed;
+        const etaMin = Math.ceil((remaining / (itemsPerSec || 0.1)) / 60);
+
+        try {
+            fs.writeFileSync(path.join(__dirname, 'progress.json'), JSON.stringify({
+                completed, total, percent, etaMin, 
+                lastFile: chunkResults[chunkResults.length-1]?.Archivo || '',
+                status: 'Running'
+            }));
+        } catch(e) {}
+
+        console.log(`[>>] Avance: ${percent}% (${completed}/${total})`);
         try {
             const ws = XLSX.utils.json_to_sheet(results);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Resultados E-14");
             XLSX.writeFile(wb, outputPath);
-        } catch(e) { 
-            console.error(`\n[!!!] ERROR GUARDANDO EXCEL: Por favor CIERRA el archivo ${outputFileName} si lo tienes abierto.\n`); 
-        }
+        } catch(e) {}
     }
 
-    console.log(`\n=================================================`);
-    console.log(`¡Proceso Finalizado Exitosamente en tiempo récord!`);
-    console.log(`Archivo guardado: ${outputFileName}`);
-    console.log(`=================================================\n`);
+    try {
+        fs.writeFileSync(path.join(__dirname, 'progress.json'), JSON.stringify({
+            completed: results.length, total: results.length, percent: 100, etaMin: 0, status: 'Finished'
+        }));
+    } catch(e) {}
 }
 
 main();

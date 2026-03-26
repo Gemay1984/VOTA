@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Extracción - VOTA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #0f172a; color: #f8fafc; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .progress-fill { transition: width 0.5s ease-in-out; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="max-w-xl w-full glass rounded-3xl p-8 shadow-2xl">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-blue-400">Extracción E-14</h1>
+            <span id="statusBadge" class="px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-wider">Iniciando</span>
+        </div>
+
+        <div class="relative pt-1">
+            <div class="flex mb-2 items-center justify-between">
+                <div>
+                    <span id="percentText" class="text-5xl font-extrabold text-white">0%</span>
+                </div>
+                <div class="text-right">
+                    <span id="completedText" class="text-sm font-semibold text-slate-400">0 / 0</span>
+                    <div class="text-xs text-slate-500">Formularios procesados</div>
+                </div>
+            </div>
+            <div class="overflow-hidden h-4 mb-4 text-xs flex rounded-full bg-slate-800">
+                <div id="progressBar" style="width:0%" class="progress-fill shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"></div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mt-8">
+            <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
+                <span class="block text-slate-500 text-xs uppercase font-bold mb-1">Tiempo Restante</span>
+                <span id="etaText" class="text-xl font-bold text-white">-- min</span>
+            </div>
+            <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
+                <span class="block text-slate-500 text-xs uppercase font-bold mb-1">Último Archivo</span>
+                <span id="lastFileText" class="text-xs font-mono text-blue-300 truncate block">Esperando...</span>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center">
+            <p class="text-slate-500 text-xs italic">Mantén esta ventana abierta para seguir el progreso.</p>
+        </div>
+    </div>
+
+    <script>
+        async function updateProgress() {
+            try {
+                const response = await fetch('progress.json?nocache=' + Date.now());
+                const data = await response.json();
+                
+                document.getElementById('percentText').innerText = data.percent + '%';
+                document.getElementById('progressBar').style.width = data.percent + '%';
+                document.getElementById('completedText').innerText = data.completed + ' / ' + data.total;
+                document.getElementById('etaText').innerText = data.etaMin + ' min';
+                document.getElementById('lastFileText').innerText = data.lastFile || 'Procesando...';
+                
+                const badge = document.getElementById('statusBadge');
+                if (data.status === 'Finished') {
+                    badge.innerText = 'Completado';
+                    badge.className = 'px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-wider';
+                } else if (data.status === 'Running') {
+                    badge.innerText = 'En Curso';
+                    badge.className = 'px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-wider';
+                }
+            } catch (error) {
+                console.log('Esperando datos de progreso...');
+            }
+        }
+
+        setInterval(updateProgress, 2000);
+        updateProgress();
+    </script>
+</body>
+</html>
