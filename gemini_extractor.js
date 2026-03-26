@@ -75,7 +75,7 @@ Devuelve ESTRICTAMENTE un JSON con esta estructura exacta y sin formato extra:
     } catch (e) {
         // En cuenta de paga, los errores serán mínimos, pero capturamos por si acaso
         console.error(`Error procesando ${filePath}:`, e.message);
-        return { Mesa: "Error", U_SoloPartido: "Error", U_7: "Error", Con_SoloPartido: "Error", Con_11: "Error" };
+        return { Departamento: "Error", Municipio: "Error", Zona: "Error", Puesto: "Error", Mesa: "Error", Lugar: "Error", U_SoloLista: "Error", U_7: "Error", Con_SoloLista: "Error", Con_11: "Error" };
     }
 }
 
@@ -93,7 +93,10 @@ async function main() {
             console.log("Leyendo progreso anterior de " + outputFileName + "...");
             const workbook = XLSX.readFile(outputPath);
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            results = XLSX.utils.sheet_to_json(sheet);
+            
             // Only keep successful results in memory, so errors get re-run and overwritten
+            const initialCount = results.length;
             results = results.filter(r => r["Mesa"] !== "Error");
             
             const procesados = new Set(results.map(r => r["Archivo"]));
@@ -126,12 +129,17 @@ async function main() {
             const data = await extractFromPdf(file);
             return {
                 "Archivo": path.basename(file),
-                "Zona": path.dirname(file).replace(BASE_DIR, ''),
+                "Departamento": data.Departamento,
+                "Municipio": data.Municipio,
+                "Zona": data.Zona,
+                "Puesto": data.Puesto,
                 "Mesa": data.Mesa,
-                "Partido de la U (Solo Partido)": data.U_SoloPartido,
+                "Lugar (Puesto de Votación)": data.Lugar,
+                "Votos SOLO POR LA LISTA (U)": data.U_SoloLista,
                 "Partido de la U (Cand 7)": data.U_7,
-                "Conservador (Solo Partido)": data.Con_SoloPartido,
-                "Conservador (Cand 11)": data.Con_11
+                "Votos SOLO POR LA LISTA (Conservador)": data.Con_SoloLista,
+                "Conservador (Cand 11)": data.Con_11,
+                "Zona Carpeta": path.dirname(file).replace(BASE_DIR, '')
             };
         }));
         
