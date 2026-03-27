@@ -3,6 +3,7 @@ let donutChart = null;
 let dataDiaD = null;
 let dataE14 = null;
 let e14ByMesa = {};
+let currentFilteredMesas = []; // Shared for Excel export
 
 const STOP_WORDS = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'en', 'ie', 'col', 'colegio', 'institucion', 'educativa', 'educativo', 'instituto', 'escuela', 'sede', 'puesto', 'and', 'the', 'num', 'no', 'mesa', 'urna', 'sd', 'principal', 'nuestra', 'senora', 'juan', 'maria', 'jose', 'santa', 'san', 'santander', 'normal', 'superior']);
 
@@ -11,8 +12,7 @@ const ABBREV_EXPAND = {
     'iti': 'instituto tecnico industrial', 'esap': 'escuela superior administracion publica', 'imet': 'imet',
     'madre marcelina': 'madre marcelina', 'medre marcelina': 'madre marcelina', 'estadio': 'estadio centenario',
     'ciudad sur': 'ciudadela del sur', 'ciudadela del sur': 'ciudadela del sur', 'zuldemayda': 'zuldemayda',
-    'zuldemaida': 'zuldemayda', 'zuldemaida': 'zuldemayda', 'zuldemaida': 'zuldemayda',
-    'quindos': 'los quindos', 'i e juan xxiii': 'juan xxiii', 'juan xxiii': 'juan xxiii', 'gustavo matamoros': 'gustavo matamoros',
+    'zuldemaida': 'zuldemayda', 'quindos': 'los quindos', 'i e juan xxiii': 'juan xxiii', 'juan xxiii': 'juan xxiii', 'gustavo matamoros': 'gustavo matamoros',
     'casd': 'casd', 'inem': 'inem', 'mutis': 'mutis', 'sena': 'sena', 'uniquindio': 'universidad del quindio',
     'u q': 'universidad del quindio', 'udq': 'universidad del quindio', 'universidad del quindio': 'universidad del quindio',
     'la adiela': 'la adiela', 'la cecilia': 'la cecilia', 'la patria': 'la patria', 'occidente': 'occidente',
@@ -25,11 +25,9 @@ function initDashboard() {
     setupEventListeners();
     initDonutChart();
     
-    // Load saved API URL if any
     const savedApiUrl = localStorage.getItem('apiUrl');
     if (savedApiUrl) document.getElementById('apiUrl').value = savedApiUrl;
 
-    // Auto-sync on load
     syncData();
 }
 
@@ -71,7 +69,6 @@ function updateDonutChart(green, yellow, red, gray) {
 function setupEventListeners() {
     document.getElementById('btnSync').addEventListener('click', syncData);
     
-    // Multi-select dropdown logic
     const btn = document.getElementById('leaderSelectBtn');
     const dropdown = document.getElementById('leaderDropdown');
     const search = document.getElementById('leaderSearch');
@@ -98,6 +95,7 @@ function setupEventListeners() {
     document.getElementById('filterPuesto').addEventListener('input', renderDashboard);
     document.getElementById('filterMesa').addEventListener('input', renderDashboard);
     document.getElementById('filterStatus').addEventListener('change', renderDashboard);
+    document.getElementById('btnDownloadExcel').addEventListener('click', downloadExcel);
 }
 
 async function syncData() {
@@ -108,20 +106,15 @@ async function syncData() {
     setStatus('Sincronizando...', 'yellow', true);
 
     try {
-        const res = await fetch(apiUrl).then(r => r.ok ? r.json() : Promise.reject('Error de conexión con el script'));
-
+        const res = await fetch(apiUrl).then(r => r.ok ? r.json() : Promise.reject('Error de conexión'));
         if (res.error) throw new Error(res.error);
-        if (!res.diad || !res.e14) throw new Error('Respuesta del script incompleta');
-
         dataDiaD = res.diad;
         dataE14 = res.e14;
-
         processData();
         setStatus('Datos Listos', 'green', false);
     } catch (err) {
-        console.error('Error de Sincronización:', err);
+        console.error(err);
         setStatus('Error de Conexión', 'red', false);
-        alert('Error: ' + err.message + '\n\nPosibles causas:\n1. El script no está implementado como "Cualquier persona".\n2. Los IDs de los archivos en el script son incorrectos.\n3. Los archivos no tienen permiso de lectura para el script.');
     }
 }
 
@@ -136,14 +129,11 @@ function setStatus(text, color, anim) {
 
 function processData() {
     if (!dataE14 || !dataDiaD) return;
-    // Index E14 by Mesa
     e14ByMesa = {};
     dataE14.forEach(row => {
         if (!row) return;
         const mesa = parseInt(row['Mesa']) || 0;
-        const lugar = row['Lugar (Puesto de Votación)'] || row['Lugar'] || '';
-        const zona = row['Zona'] || row['Zona Carpeta'] || '';
-        const folderWords = getKeyWords(String(lugar) + ' ' + String(zona));
+        const folderWords = getKeyWords((row['Lugar (Puesto de Votación)'] || row['Lugar'] || '') + ' ' + (row['Zona'] || ''));
         if (!e14ByMesa[mesa]) e14ByMesa[mesa] = [];
         e14ByMesa[mesa].push({ folderWords, row });
     });
@@ -165,6 +155,8 @@ function processData() {
     });
 
     const leaderResults = {};
+    const mesaLeaderIdx = {};
+
     for (const [lider, puestos] of Object.entries(leaderMapTmp)) {
         leaderResults[lider] = { mesas: [] };
         for (const [puesto, mesasObj] of Object.entries(puestos)) {
@@ -177,23 +169,15 @@ function processData() {
                         uCand7: parseInt(e14Match['Partido de la U (Cand 7)']) || 0,
                         conSoloLista: parseInt(e14Match['Votos SOLO POR LA LISTA (Conservador)']) || 0,
                         conCand11: parseInt(e14Match['Conservador (Cand 11)']) || 0,
-                        zona: e14Match['Zona'] || e14Match['Zona Carpeta']
                     } : null
                 });
+                const key = `${puesto}|${mesa}`;
+                if (!mesaLeaderIdx[key]) mesaLeaderIdx[key] = new Set();
+                mesaLeaderIdx[key].add(lider);
             }
         }
     }
 
-    const mesaLeaderIdx = {};
-    dataDiaD.forEach(r => {
-        if (!r) return;
-        const p = String(r['Puesto de Votacion'] || r['Puesto de Votacion '] || '').trim();
-        const m = parseInt(r['Mesa']);
-        if (!m) return;
-        const key = `${p}|${m}`;
-        if (!mesaLeaderIdx[key]) mesaLeaderIdx[key] = new Set();
-        mesaLeaderIdx[key].add(String(r['usuario']).trim());
-    });
     for (const [lid, res] of Object.entries(leaderResults)) {
         res.mesas.forEach(m => {
             const all = mesaLeaderIdx[`${m.puesto}|${m.mesa}`] ? [...mesaLeaderIdx[`${m.puesto}|${m.mesa}`]] : [];
@@ -207,16 +191,10 @@ function processData() {
 
 function getKeyWords(str) {
     if (!str) return [];
-    // Convert to string and clean
     let s = String(str).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    // Remove "MESA XX" suffix and similar noise
     s = s.replace(/\bmesa\s+\d+\b/g, '').replace(/\burna\s+\d+\b/g, '');
-    // Standardize variants
     s = s.replace(/\bi\.e\.?\b/g, 'ie').replace(/\bi\s+e\b/g, 'ie').replace(/\bsd\b/g, 'sede');
-    // Final clean of special chars
     s = s.replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-    
-    // Expand abbreviations and then split into words
     return s.split(' ').map(w => ABBREV_EXPAND[w] || w).join(' ').split(' ').filter(w => w.length >= 3 && !STOP_WORDS.has(w));
 }
 
@@ -236,45 +214,29 @@ function findE14Match(puesto, mesa) {
 function populateLeaders() {
     const list = document.getElementById('leaderList');
     list.innerHTML = '';
-    
     rawData.leaderNames.forEach(l => {
         const item = document.createElement('div');
         item.className = 'checkbox-item px-4 py-2 flex items-center gap-3 cursor-pointer transition-colors border-b border-slate-700/30';
-        item.innerHTML = `
-            <input type="checkbox" value="${l}" class="leader-checkbox">
-            <span class="text-sm text-slate-300 truncate">${l}</span>
-        `;
+        item.innerHTML = `<input type="checkbox" value="${l}" class="leader-checkbox"><span class="text-sm text-slate-300 truncate">${l}</span>`;
         item.addEventListener('click', (e) => {
-            if (e.target.tagName !== 'INPUT') {
-                const cb = item.querySelector('input');
-                cb.checked = !cb.checked;
-            }
+            if (e.target.tagName !== 'INPUT') { const cb = item.querySelector('input'); cb.checked = !cb.checked; }
             renderDashboard();
         });
         list.appendChild(item);
     });
-    
     renderDashboard();
 }
 
 function filterLeaders() {
     const q = document.getElementById('leaderSearch').value.toLowerCase();
-    const items = document.querySelectorAll('.checkbox-item');
-    items.forEach(it => {
+    document.querySelectorAll('.checkbox-item').forEach(it => {
         const text = it.querySelector('span').innerText.toLowerCase();
         it.style.display = text.includes(q) ? 'flex' : 'none';
     });
 }
 
-function selectAllLeaders() {
-    document.querySelectorAll('.leader-checkbox').forEach(cb => cb.checked = true);
-    renderDashboard();
-}
-
-function clearAllLeaders() {
-    document.querySelectorAll('.leader-checkbox').forEach(cb => cb.checked = false);
-    renderDashboard();
-}
+function selectAllLeaders() { document.querySelectorAll('.leader-checkbox').forEach(cb => cb.checked = true); renderDashboard(); }
+function clearAllLeaders() { document.querySelectorAll('.leader-checkbox').forEach(cb => cb.checked = false); renderDashboard(); }
 
 function getVotesFromE14(e14, candidateId, includeParty) {
     if (!e14) return null;
@@ -287,13 +249,11 @@ function getVotesFromE14(e14, candidateId, includeParty) {
 }
 
 function renderDashboard() {
-    const selectedCheckboxes = document.querySelectorAll('.leader-checkbox:checked');
-    const selectedLeaders = Array.from(selectedCheckboxes).map(cb => cb.value);
+    const selectedLeaders = Array.from(document.querySelectorAll('.leader-checkbox:checked')).map(cb => cb.value);
     const cid = document.getElementById('candidateSelect').value;
     const incP = document.getElementById('includePartyToggle').checked;
     const tb = document.getElementById('resultsTableBody');
 
-    // Update button text
     const selectBtnText = document.getElementById('selectedCountText');
     if (selectedLeaders.length === 0) selectBtnText.innerText = "Selecciona uno o varios líderes...";
     else if (selectedLeaders.length === 1) selectBtnText.innerText = selectedLeaders[0];
@@ -301,7 +261,6 @@ function renderDashboard() {
 
     if (!dataE14 || !dataDiaD) return;
 
-    // 1. GLOBAL Candidate Total (Across ALL E14 records)
     let globalE14 = 0;
     dataE14.forEach(row => {
         let cv = 0, pv = 0;
@@ -313,67 +272,44 @@ function renderDashboard() {
     });
     document.getElementById('kpiGlobal').innerText = globalE14.toLocaleString();
 
-    // 2. Dashboard Stats & Table
     let tMeta=0, tReal=0, g=0, y=0, r=0, gr=0, sc=0, mCub=0;
     let rows = '';
 
     if (selectedLeaders.length === 0) {
         tb.innerHTML = '<tr><td colspan="6" class="py-12 text-center text-slate-500 italic">Sincronización Exitosa. Selecciona uno o más líderes para ver el detalle.</td></tr>';
-        
-        // Calculate Global Effectiveness (across ALL leaders in the DB)
         Object.values(rawData.leaders).forEach(l => {
             l.mesas.forEach(m => {
                 const rv = getVotesFromE14(m.e14, cid, incP);
                 if (rv === null) gr++;
-                else {
-                    const real = rv;
-                    if (real >= m.proyectados) g++;
-                    else if (real > 0) y++;
-                    else r++;
-                }
+                else { if (rv >= m.proyectados) g++; else if (rv > 0) y++; else r++; }
             });
         });
-        document.getElementById('kpiMeta').innerText = "VOTACIÓN";
-        document.getElementById('kpiReal').innerText = "GLOBAL";
-        document.getElementById('kpiCumple').innerText = "100%";
-        document.getElementById('kpiShared').innerText = "0";
-        document.getElementById('kpiAciertos').innerText = "General";
-        document.getElementById('tableCount').innerText = "Resumen Global";
+        document.getElementById('kpiMeta').innerText = "VOTACIÓN"; document.getElementById('kpiReal').innerText = "GLOBAL";
+        document.getElementById('kpiCumple').innerText = "100%"; document.getElementById('kpiShared').innerText = "0";
+        document.getElementById('kpiAciertos').innerText = "General"; document.getElementById('tableCount').innerText = "Resumen Global";
         updateDonutChart(g, y, r, gr);
+        currentFilteredMesas = [];
         return;
     }
     
-    // Aggregate data for ALL selected leaders
     const aggregatedMesas = [];
-    selectedLeaders.forEach(lName => {
-        const lData = rawData.leaders[lName];
-        if (lData) aggregatedMesas.push(...lData.mesas);
-    });
-
-    // Optional: Sort aggregated mesas by puesto name
+    selectedLeaders.forEach(lName => { if (rawData.leaders[lName]) aggregatedMesas.push(...rawData.leaders[lName].mesas); });
     aggregatedMesas.sort((a,b) => a.puesto.localeCompare(b.puesto));
 
-    // Apply Table Filters
     const fPuesto = document.getElementById('filterPuesto').value.toLowerCase();
     const fMesa = document.getElementById('filterMesa').value.toLowerCase();
     const fStatus = document.getElementById('filterStatus').value;
 
     const filteredMesas = aggregatedMesas.filter(m => {
         const rv = getVotesFromE14(m.e14, cid, incP);
-        const real = rv === null ? 0 : rv;
-        
-        let mStatus = 'gray';
-        if (rv === null) mStatus = 'gray';
-        else if (real >= m.proyectados) mStatus = 'green';
-        else if (real > 0) mStatus = 'yellow';
-        else mStatus = 'red';
-
+        let mStatus = rv === null ? 'gray' : (rv >= m.proyectados ? 'green' : (rv > 0 ? 'yellow' : 'red'));
         const matchPuesto = fPuesto === '' || m.puesto.toLowerCase().includes(fPuesto);
         const matchMesa = fMesa === '' || String(m.mesa).includes(fMesa);
         const matchStatus = fStatus === 'all' || mStatus === fStatus;
-
         return matchPuesto && matchMesa && matchStatus;
     });
+
+    currentFilteredMesas = filteredMesas;
 
     filteredMesas.forEach(m => {
         tMeta += m.proyectados;
@@ -389,18 +325,15 @@ function renderDashboard() {
 
         let sh = '—';
         const filteredShared = (m.sharedLeaders || []).filter(l => selectedLeaders.includes(l));
-        if (filteredShared.length) { 
-            sc++; 
-            sh = `<div class="flex flex-col gap-1">${filteredShared.map(l => `<span class="text-[9px] badge-yellow px-1 py-0.5 rounded-sm">⚠️ ${l}</span>`).join('')}</div>`; 
-        }
+        if (filteredShared.length) { sc++; sh = `<div class="flex flex-col gap-1">${filteredShared.map(l => `<span class="text-[9px] badge-yellow px-1 py-0.5 rounded-sm">⚠️ ${l}</span>`).join('')}</div>`; }
 
-        const vHtml = m.voters.map(v => `<div class="flex items-center gap-1 py-0.5 border-b border-slate-800/50"><div class="text-slate-200 text-[11px]">${v.nombre}</div></div>`).join('');
+        const vHtml = m.voters.map(v => `<div class="flex items-center gap-1 py-0.5 border-b border-slate-800/50 text-slate-200 text-[11px]">${v.nombre}</div>`).join('');
         
         rows += `<tr class="hover:bg-slate-800/40 border-b border-slate-800/50">
-            <td class="py-3 px-4 align-top"><div class="font-medium text-slate-300 text-xs">${m.puesto}</div></td>
-            <td class="py-3 px-2 text-center align-top"><span class="font-bold text-white text-sm">${m.mesa}</span></td>
+            <td class="py-3 px-4 align-top text-slate-300 text-xs">${m.puesto}</td>
+            <td class="py-3 px-2 text-center align-top font-bold text-white text-sm">${m.mesa}</td>
             <td class="py-3 px-3 align-top"><div class="max-h-24 overflow-y-auto pr-1">${vHtml}</div></td>
-            <td class="py-3 px-3 text-center align-top border-l border-slate-700/30 bg-slate-900/20"><div class="text-2xl font-bold text-blue-400">${rv !== null ? real : '—'}</div></td>
+            <td class="py-3 px-3 text-center align-top border-l border-slate-700/30 bg-slate-900/20 text-2xl font-bold text-blue-400">${rv !== null ? real : '—'}</td>
             <td class="py-3 px-3 text-center align-top"><span class="px-2 py-0.5 text-[10px] font-bold rounded-md border ${bc}">${it}</span><div class="text-slate-500 text-[10px] mt-1">${el}</div></td>
             <td class="py-3 px-2 align-top">${sh}</td>
         </tr>`;
@@ -419,6 +352,32 @@ function renderDashboard() {
     kpiCumple.className = `text-2xl font-bold mt-1 ${cumpleNum >= 100 ? 'text-emerald-400' : cumpleNum >= 50 ? 'text-amber-400' : 'text-red-400'}`;
 
     updateDonutChart(g, y, r, gr);
+}
+
+function downloadExcel() {
+    if (!currentFilteredMesas || currentFilteredMesas.length === 0) { alert("No hay datos filtrados para descargar."); return; }
+    const cid = document.getElementById('candidateSelect').value;
+    const incP = document.getElementById('includePartyToggle').checked;
+
+    const data = currentFilteredMesas.map(m => {
+        const rv = getVotesFromE14(m.e14, cid, incP);
+        let mStatus = rv === null ? 'No hay E14' : (rv >= m.proyectados ? 'Cumplida' : (rv > 0 ? 'Parcial' : 'Sin votos'));
+        return {
+            "Puesto de Votación": m.puesto,
+            "Mesa": m.mesa,
+            "Personas Proyectadas": m.proyectados,
+            "Votos E-14 (Real)": rv !== null ? rv : 0,
+            "Estado": mStatus,
+            "Porcentaje": m.proyectados > 0 ? `${(( (rv||0) / m.proyectados )*100).toFixed(1)}%` : '0%',
+            "Líderes Shared": (m.sharedLeaders || []).join(", "),
+            "Votantes": m.voters.map(v => v.nombre).join(" | ")
+        };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Eficacia");
+    XLSX.writeFile(wb, `Reporte_Eficacia_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
 document.addEventListener('DOMContentLoaded', initDashboard);
