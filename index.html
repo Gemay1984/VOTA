@@ -98,37 +98,43 @@
             </div>
         </section>
 
-        <section class="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div class="glass-panel rounded-2xl p-5 stat-card flex flex-col justify-center border-l-4 border-l-blue-500">
+        <section class="grid grid-cols-1 md:grid-cols-6 gap-3">
+            <div class="glass-panel rounded-2xl p-4 stat-card flex flex-col justify-center border-l-4 border-l-blue-500">
                 <span class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Meta (Día D)</span>
-                <span id="kpiMeta" class="text-3xl font-bold mt-1 text-white">0</span>
-                <span class="text-slate-500 text-[10px] mt-1">Votantes Proyectados</span>
+                <span id="kpiMeta" class="text-2xl font-bold mt-1 text-white">0</span>
+                <span class="text-slate-500 text-[10px] mt-1">Suma del Líder</span>
             </div>
-            <div class="glass-panel rounded-2xl p-5 stat-card flex flex-col justify-center border-l-4 border-l-emerald-500">
+            <div class="glass-panel rounded-2xl p-4 stat-card flex flex-col justify-center border-l-4 border-l-emerald-500">
                 <span class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Votos (E-14)</span>
-                <span id="kpiReal" class="text-3xl font-bold mt-1 text-emerald-400">0</span>
-                <span class="text-slate-500 text-[10px] mt-1">Conteo Real en Mesas</span>
+                <span id="kpiReal" class="text-2xl font-bold mt-1 text-emerald-400">0</span>
+                <span class="text-slate-500 text-[10px] mt-1">En mesas del líder</span>
             </div>
-            <div class="glass-panel rounded-2xl p-5 stat-card flex flex-col justify-center border-l-4 border-l-purple-500">
+            <div class="glass-panel rounded-2xl p-4 stat-card flex flex-col justify-center border-l-4 border-l-purple-500">
                 <span class="text-slate-400 text-[10px] font-bold uppercase tracking-wider">Cumplimiento</span>
-                <span id="kpiCumple" class="text-3xl font-bold mt-1 text-purple-400">—</span>
-                <span class="text-slate-500 text-[10px] mt-1">Votos vs Proyección</span>
+                <span id="kpiCumple" class="text-2xl font-bold mt-1 text-purple-400">—</span>
+                <span class="text-slate-500 text-[10px] mt-1">Líder Seleccionado</span>
             </div>
-            <!-- Donut chart replacing effectiveness card -->
-            <div class="glass-panel rounded-2xl p-4 stat-card flex flex-col items-center justify-center col-span-2 relative border border-slate-700">
-                <span class="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-2">Estado de Mesas</span>
-                <div class="flex items-center gap-6 w-full justify-center">
-                    <div style="width:110px;height:110px;position:relative;">
+            <!-- NEW GLOBAL CARD -->
+            <div class="glass-panel rounded-2xl p-4 stat-card flex flex-col justify-center border-l-4 border-l-pink-500 bg-pink-500/5">
+                <span class="text-slate-400 text-[10px] font-bold uppercase tracking-wider text-pink-300">Total Candidato</span>
+                <span id="kpiGlobal" class="text-2xl font-bold mt-1 text-pink-400">0</span>
+                <span class="text-slate-500 text-[10px] mt-1">Toda la base E-14</span>
+            </div>
+            <!-- Donut chart -->
+            <div class="glass-panel rounded-2xl p-3 stat-card flex flex-col items-center justify-center col-span-2 relative border border-slate-700">
+                <span class="text-slate-400 text-[9px] font-bold uppercase tracking-wider mb-1">Estado de sus Mesas</span>
+                <div class="flex items-center gap-4 w-full justify-center">
+                    <div style="width:90px;height:90px;position:relative;">
                         <canvas id="donutChart"></canvas>
                         <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
-                            <div id="donutPct" class="text-xl font-bold text-white">—</div>
+                            <div id="donutPct" class="text-lg font-bold text-white">—</div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
-                        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span><span id="lblGreen" class="font-bold text-white">0</span><span class="text-slate-400">OK</span></div>
-                        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span><span id="lblYellow" class="font-bold text-white">0</span><span class="text-slate-400">PAR</span></div>
-                        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500"></span><span id="lblRed" class="font-bold text-white">0</span><span class="text-slate-400">SIN</span></div>
-                        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-600"></span><span id="lblGray" class="font-bold text-white">0</span><span class="text-slate-400">OFF</span></div>
+                    <div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9px]">
+                        <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span><span id="lblGreen" class="font-bold text-white">0</span><span class="text-slate-400">OK</span></div>
+                        <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span><span id="lblYellow" class="font-bold text-white">0</span><span class="text-slate-400">PAR</span></div>
+                        <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span><span id="lblRed" class="font-bold text-white">0</span><span class="text-slate-400">SIN</span></div>
+                        <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-600"></span><span id="lblGray" class="font-bold text-white">0</span><span class="text-slate-400">OFF</span></div>
                     </div>
                 </div>
             </div>

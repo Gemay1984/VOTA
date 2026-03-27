@@ -234,11 +234,49 @@ function renderDashboard() {
     const cid = document.getElementById('candidateSelect').value;
     const incP = document.getElementById('includePartyToggle').checked;
     const tb = document.getElementById('resultsTableBody');
-    if (!leader) { tb.innerHTML = '<tr><td colspan="6" class="py-12 text-center text-slate-500 italic">Cargando datos de Google Sheets...</td></tr>'; return; }
+
+    if (!dataE14 || !dataDiaD) return;
+
+    // 1. GLOBAL Candidate Total (Across ALL E14 records)
+    let globalE14 = 0;
+    dataE14.forEach(row => {
+        let cv = 0, pv = 0;
+        if (cid === 'U_7') { cv = parseInt(row['Partido de la U (Cand 7)']) || 0; pv = parseInt(row['Votos SOLO POR LA LISTA (U)']) || 0; }
+        else if (cid === 'U_Solo') { pv = parseInt(row['Votos SOLO POR LA LISTA (U)']) || 0; }
+        else if (cid === 'Con_11') { cv = parseInt(row['Conservador (Cand 11)']) || 0; pv = parseInt(row['Votos SOLO POR LA LISTA (Conservador)']) || 0; }
+        else if (cid === 'Con_Solo') { pv = parseInt(row['Votos SOLO POR LA LISTA (Conservador)']) || 0; }
+        globalE14 += cv + (incP ? pv : 0);
+    });
+    document.getElementById('kpiGlobal').innerText = globalE14.toLocaleString();
+
+    // 2. Global / Leader Logic Switch
+    let tMeta=0, tReal=0, g=0, y=0, r=0, gr=0, sc=0, mCub=0;
+    let rows = '';
+
+    if (!leader) {
+        tb.innerHTML = '<tr><td colspan="6" class="py-12 text-center text-slate-500 italic">Sincronización Exitosa. Selecciona un líder para ver detalles individuales.</td></tr>';
+        
+        // Calculate Global Effectiveness (for ALL leaders)
+        Object.values(rawData.leaders).forEach(l => {
+            l.mesas.forEach(m => {
+                const rv = getVotesFromE14(m.e14, cid, incP);
+                if (rv === null) gr++;
+                else {
+                    if (rv >= m.proyectados) g++;
+                    else if (rv > 0) y++;
+                    else r++;
+                }
+            });
+        });
+        document.getElementById('kpiMeta').innerText = "VOTACIÓN";
+        document.getElementById('kpiReal').innerText = "GLOBAL";
+        document.getElementById('kpiCumple').innerText = "100%";
+        document.getElementById('kpiAciertos').innerText = "Resumen General";
+        updateDonutChart(g, y, r, gr);
+        return;
+    }
     
     const lData = rawData.leaders[leader];
-    let tMeta = 0, tReal = 0, g=0, y=0, r=0, gr=0, sc=0, mCub=0;
-    let rows = '';
 
     lData.mesas.forEach(m => {
         tMeta += m.proyectados;
@@ -247,23 +285,23 @@ function renderDashboard() {
         if (rv !== null) tReal += real;
 
         let bc, it, el;
-        if (rv === null) { bc='text-slate-400 bg-slate-800 border-slate-700'; it='⚪ Sin datos'; el='No encontrado'; gr++; }
-        else if (real >= m.proyectados) { bc='text-emerald-400 bg-emerald-900/40 border-emerald-800'; it='🟢 Cubierta'; el=`${((real/m.proyectados)*100).toFixed(0)}%`; g++; mCub++; }
+        if (rv === null) { bc='text-slate-400 bg-slate-800 border-slate-700'; it='⚪ No hay E14'; el='Pendiente'; gr++; }
+        else if (real >= m.proyectados) { bc='text-emerald-400 bg-emerald-900/40 border-emerald-800'; it='🟢 Cumplida'; el=`${((real/m.proyectados)*100).toFixed(0)}%`; g++; mCub++; }
         else if (real > 0) { bc='text-amber-400 bg-amber-900/40 border-amber-800'; it='🟡 Parcial'; el=`${((real/m.proyectados)*100).toFixed(0)}%`; y++; }
         else { bc='text-red-400 bg-red-900/40 border-red-800'; it='🔴 Sin votos'; el='0%'; r++; }
 
         let sh = '—';
-        if (m.sharedLeaders && m.sharedLeaders.length) { sc++; sh = `<div class="flex flex-col gap-1">${m.sharedLeaders.map(l => `<span class="text-xs badge-yellow px-2 py-0.5 rounded-md">⚠️ ${l}</span>`).join('')}</div>`; }
+        if (m.sharedLeaders && m.sharedLeaders.length) { sc++; sh = `<div class="flex flex-col gap-1">${m.sharedLeaders.map(l => `<span class="text-[9px] badge-yellow px-1 py-0.5 rounded-sm">⚠️ ${l}</span>`).join('')}</div>`; }
 
-        const vHtml = m.voters.map(v => `<div class="flex items-center gap-2 py-0.5"><div class="text-slate-200 text-xs">${v.nombre} (CC: ${v.cedula})</div></div>`).join('');
+        const vHtml = m.voters.map(v => `<div class="flex items-center gap-1 py-0.5 border-b border-slate-800/50"><div class="text-slate-200 text-[11px]">${v.nombre}</div></div>`).join('');
         
-        rows += `<tr class="hover:bg-slate-800/40 border-b border-slate-800">
-            <td class="py-4 px-6 align-top"><div class="font-semibold text-slate-200 text-sm">${m.puesto}</div></td>
-            <td class="py-4 px-4 text-center align-top"><span class="font-bold text-white text-base">M ${m.mesa}</span></td>
-            <td class="py-4 px-4 align-top"><div class="max-h-28 overflow-y-auto">${vHtml}</div></td>
-            <td class="py-4 px-4 text-center align-top border-l border-slate-700 bg-slate-900/40"><div class="text-3xl font-bold text-blue-400">${rv !== null ? real : '—'}</div></td>
-            <td class="py-4 px-4 text-center align-top"><span class="px-3 py-1.5 text-xs font-bold rounded-full border ${bc}">${it}</span><div class="text-slate-500 text-xs mt-1">${el}</div></td>
-            <td class="py-4 px-4 align-top">${sh}</td>
+        rows += `<tr class="hover:bg-slate-800/40 border-b border-slate-800/50">
+            <td class="py-3 px-4 align-top"><div class="font-medium text-slate-300 text-xs">${m.puesto}</div></td>
+            <td class="py-3 px-2 text-center align-top"><span class="font-bold text-white text-sm">${m.mesa}</span></td>
+            <td class="py-3 px-3 align-top"><div class="max-h-24 overflow-y-auto pr-1">${vHtml}</div></td>
+            <td class="py-3 px-3 text-center align-top border-l border-slate-700/30 bg-slate-900/20"><div class="text-2xl font-bold text-blue-400">${rv !== null ? real : '—'}</div></td>
+            <td class="py-3 px-3 text-center align-top"><span class="px-2 py-0.5 text-[10px] font-bold rounded-md border ${bc}">${it}</span><div class="text-slate-500 text-[10px] mt-1">${el}</div></td>
+            <td class="py-3 px-2 align-top">${sh}</td>
         </tr>`;
     });
 
@@ -277,7 +315,7 @@ function renderDashboard() {
     const cumpleNum = tMeta > 0 ? (tReal / tMeta) * 100 : 0;
     const kpiCumple = document.getElementById('kpiCumple');
     kpiCumple.innerText = cumpleNum.toFixed(0) + '%';
-    kpiCumple.className = `text-3xl font-bold mt-1 ${cumpleNum >= 100 ? 'text-emerald-400' : cumpleNum >= 50 ? 'text-amber-400' : 'text-red-400'}`;
+    kpiCumple.className = `text-2xl font-bold mt-1 ${cumpleNum >= 100 ? 'text-emerald-400' : cumpleNum >= 50 ? 'text-amber-400' : 'text-red-400'}`;
 
     updateDonutChart(g, y, r, gr);
 }
