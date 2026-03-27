@@ -93,6 +93,11 @@ function setupEventListeners() {
     
     document.getElementById('candidateSelect').addEventListener('change', renderDashboard);
     document.getElementById('includePartyToggle').addEventListener('change', renderDashboard);
+    
+    // Table filter listeners
+    document.getElementById('filterPuesto').addEventListener('input', renderDashboard);
+    document.getElementById('filterMesa').addEventListener('input', renderDashboard);
+    document.getElementById('filterStatus').addEventListener('change', renderDashboard);
 }
 
 async function syncData() {
@@ -348,7 +353,29 @@ function renderDashboard() {
     // Optional: Sort aggregated mesas by puesto name
     aggregatedMesas.sort((a,b) => a.puesto.localeCompare(b.puesto));
 
-    aggregatedMesas.forEach(m => {
+    // Apply Table Filters
+    const fPuesto = document.getElementById('filterPuesto').value.toLowerCase();
+    const fMesa = document.getElementById('filterMesa').value.toLowerCase();
+    const fStatus = document.getElementById('filterStatus').value;
+
+    const filteredMesas = aggregatedMesas.filter(m => {
+        const rv = getVotesFromE14(m.e14, cid, incP);
+        const real = rv === null ? 0 : rv;
+        
+        let mStatus = 'gray';
+        if (rv === null) mStatus = 'gray';
+        else if (real >= m.proyectados) mStatus = 'green';
+        else if (real > 0) mStatus = 'yellow';
+        else mStatus = 'red';
+
+        const matchPuesto = fPuesto === '' || m.puesto.toLowerCase().includes(fPuesto);
+        const matchMesa = fMesa === '' || String(m.mesa).includes(fMesa);
+        const matchStatus = fStatus === 'all' || mStatus === fStatus;
+
+        return matchPuesto && matchMesa && matchStatus;
+    });
+
+    filteredMesas.forEach(m => {
         tMeta += m.proyectados;
         const rv = getVotesFromE14(m.e14, cid, incP);
         const real = rv === null ? 0 : rv;
@@ -383,8 +410,8 @@ function renderDashboard() {
     document.getElementById('kpiMeta').innerText = tMeta.toLocaleString();
     document.getElementById('kpiReal').innerText = tReal.toLocaleString();
     document.getElementById('kpiShared').innerText = sc;
-    document.getElementById('kpiAciertos').innerText = `${mCub} / ${aggregatedMesas.length}`;
-    document.getElementById('tableCount').innerText = `${aggregatedMesas.length} Mesas`;
+    document.getElementById('kpiAciertos').innerText = `${mCub} / ${filteredMesas.length}`;
+    document.getElementById('tableCount').innerText = `${filteredMesas.length} Mesas Encontradas`;
 
     const cumpleNum = tMeta > 0 ? (tReal / tMeta) * 100 : 0;
     const kpiCumple = document.getElementById('kpiCumple');
