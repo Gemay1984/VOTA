@@ -55,6 +55,15 @@ function initDonutChart() {
 }
 
 function updateDonutChart(green, yellow, red, gray) {
+    const total = green + yellow + red;
+    const pct = total > 0 ? ((green / total) * 100).toFixed(0) + '%' : '0%';
+    
+    document.getElementById('lblGreen').innerText = green;
+    document.getElementById('lblYellow').innerText = yellow;
+    document.getElementById('lblRed').innerText = red;
+    document.getElementById('lblGray').innerText = gray;
+    document.getElementById('donutPct').innerText = pct;
+
     donutChart.data.datasets[0].data = [green, yellow, red, gray];
     donutChart.update();
 }
@@ -264,6 +273,12 @@ function renderDashboard() {
     document.getElementById('kpiShared').innerText = sc;
     document.getElementById('kpiAciertos').innerText = `${mCub} / ${lData.mesas.length}`;
     document.getElementById('tableCount').innerText = `${lData.mesas.length} Mesas`;
+
+    const cumpleNum = tMeta > 0 ? (tReal / tMeta) * 100 : 0;
+    const kpiCumple = document.getElementById('kpiCumple');
+    kpiCumple.innerText = cumpleNum.toFixed(0) + '%';
+    kpiCumple.className = `text-3xl font-bold mt-1 ${cumpleNum >= 100 ? 'text-emerald-400' : cumpleNum >= 50 ? 'text-amber-400' : 'text-red-400'}`;
+
     updateDonutChart(g, y, r, gr);
 }
 
