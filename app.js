@@ -4,14 +4,21 @@ let dataDiaD = null;
 let dataE14 = null;
 let e14ByMesa = {};
 
-const STOP_WORDS = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'en', 'ie', 'col', 'colegio', 'institucion', 'educativa', 'educativo', 'instituto', 'escuela', 'sede', 'puesto', 'and', 'the', 'num', 'no']);
+const STOP_WORDS = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'en', 'ie', 'col', 'colegio', 'institucion', 'educativa', 'educativo', 'instituto', 'escuela', 'sede', 'puesto', 'and', 'the', 'num', 'no', 'mesa', 'urna', 'sd', 'principal', 'nuestra', 'senora', 'juan', 'maria', 'jose', 'santa', 'san', 'santander', 'normal', 'superior']);
 
 const ABBREV_EXPAND = {
-    'lv': 'laura vicuna', 'l v': 'laura vicuna', 'cam': 'cam', 'eam': 'escuela administracion mercadotecnia',
+    'lv': 'laura vicuna', 'l v': 'laura vicuna', 'cam': 'centro administrativo municipal', 'eam': 'escuela administracion mercadotecnia',
     'iti': 'instituto tecnico industrial', 'esap': 'escuela superior administracion publica', 'imet': 'imet',
     'madre marcelina': 'madre marcelina', 'medre marcelina': 'madre marcelina', 'estadio': 'estadio centenario',
-    'ciudad sur': 'ciudadela del sur', 'ciudadela del sur': 'ciudadela del sur', 'zuldemaida': 'zuldemayda',
-    'quindos': 'los quindos', 'i e juan xxiii': 'juan xxiii', 'juan xxiii': 'juan xxiii', 'gustavo matamoros': 'gustavo matamoros'
+    'ciudad sur': 'ciudadela del sur', 'ciudadela del sur': 'ciudadela del sur', 'zuldemayda': 'zuldemayda',
+    'zuldemaida': 'zuldemayda', 'zuldemaida': 'zuldemayda', 'zuldemaida': 'zuldemayda',
+    'quindos': 'los quindos', 'i e juan xxiii': 'juan xxiii', 'juan xxiii': 'juan xxiii', 'gustavo matamoros': 'gustavo matamoros',
+    'casd': 'casd', 'inem': 'inem', 'mutis': 'mutis', 'sena': 'sena', 'uniquindio': 'universidad del quindio',
+    'u q': 'universidad del quindio', 'udq': 'universidad del quindio', 'universidad del quindio': 'universidad del quindio',
+    'la adiela': 'la adiela', 'la cecilia': 'la cecilia', 'la patria': 'la patria', 'occidente': 'occidente',
+    'jesus maria ocampo': 'jesus maria ocampo', 'nacional': 'nacional', 'cristobal colon': 'cristobal colon',
+    'marcelino': 'marcelino champagnat', 'champagnat': 'marcelino champagnat', 'centro': 'rufino centro',
+    'rufino': 'rufino', 'belen': 'belen', 'teresita': 'teresita montes', 'montes': 'teresita montes'
 };
 
 function initDashboard() {
@@ -94,28 +101,32 @@ function setStatus(text, color, anim) {
 }
 
 function processData() {
+    if (!dataE14 || !dataDiaD) return;
     // Index E14 by Mesa
     e14ByMesa = {};
     dataE14.forEach(row => {
+        if (!row) return;
         const mesa = parseInt(row['Mesa']) || 0;
         const lugar = row['Lugar (Puesto de Votación)'] || row['Lugar'] || '';
         const zona = row['Zona'] || row['Zona Carpeta'] || '';
-        const folderWords = getKeyWords(lugar + ' ' + zona);
+        const folderWords = getKeyWords(String(lugar) + ' ' + String(zona));
         if (!e14ByMesa[mesa]) e14ByMesa[mesa] = [];
         e14ByMesa[mesa].push({ folderWords, row });
     });
 
     const leaderMapTmp = {};
     dataDiaD.forEach(row => {
-        const lider = (row['usuario'] || 'DESCONOCIDO').toString().trim();
-        const puesto = (row['Puesto de Votacion'] || row['Puesto de Votacion '] || '').toString().trim();
+        if (!row) return;
+        const lider = String(row['usuario'] || 'DESCONOCIDO').trim();
+        const puesto = String(row['Puesto de Votacion'] || row['Puesto de Votacion '] || '').trim();
         const mesa = parseInt(row['Mesa']) || 0;
+        if (!mesa) return;
         if (!leaderMapTmp[lider]) leaderMapTmp[lider] = {};
         if (!leaderMapTmp[lider][puesto]) leaderMapTmp[lider][puesto] = {};
         if (!leaderMapTmp[lider][puesto][mesa]) leaderMapTmp[lider][puesto][mesa] = { voters: [] };
         leaderMapTmp[lider][puesto][mesa].voters.push({
-            nombre: (row['Nombres y Apellidos'] || '').toString().trim(),
-            cedula: (row['Cedula'] || '').toString().trim()
+            nombre: String(row['Nombres y Apellidos'] || '').trim(),
+            cedula: String(row['Cedula'] || '').trim()
         });
     });
 
@@ -141,10 +152,13 @@ function processData() {
 
     const mesaLeaderIdx = {};
     dataDiaD.forEach(r => {
-        const p = (r['Puesto de Votacion'] || r['Puesto de Votacion '] || '').toString().trim();
-        const key = `${p}|${parseInt(r['Mesa'])}`;
+        if (!r) return;
+        const p = String(r['Puesto de Votacion'] || r['Puesto de Votacion '] || '').trim();
+        const m = parseInt(r['Mesa']);
+        if (!m) return;
+        const key = `${p}|${m}`;
         if (!mesaLeaderIdx[key]) mesaLeaderIdx[key] = new Set();
-        mesaLeaderIdx[key].add(r['usuario'].toString().trim());
+        mesaLeaderIdx[key].add(String(r['usuario']).trim());
     });
     for (const [lid, res] of Object.entries(leaderResults)) {
         res.mesas.forEach(m => {
@@ -159,9 +173,17 @@ function processData() {
 
 function getKeyWords(str) {
     if (!str) return [];
-    const clean = str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-    const expanded = ABBREV_EXPAND[clean] || clean;
-    return expanded.split(' ').filter(w => w.length >= 3 && !STOP_WORDS.has(w));
+    // Convert to string and clean
+    let s = String(str).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    // Remove "MESA XX" suffix and similar noise
+    s = s.replace(/\bmesa\s+\d+\b/g, '').replace(/\burna\s+\d+\b/g, '');
+    // Standardize variants
+    s = s.replace(/\bi\.e\.?\b/g, 'ie').replace(/\bi\s+e\b/g, 'ie').replace(/\bsd\b/g, 'sede');
+    // Final clean of special chars
+    s = s.replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    // Expand abbreviations and then split into words
+    return s.split(' ').map(w => ABBREV_EXPAND[w] || w).join(' ').split(' ').filter(w => w.length >= 3 && !STOP_WORDS.has(w));
 }
 
 function findE14Match(puesto, mesa) {
