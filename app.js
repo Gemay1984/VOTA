@@ -52,8 +52,8 @@ function initCharts() {
             data: {
                 labels: [],
                 datasets: [
-                    { label: 'Meta', data: [], backgroundColor: 'rgba(71, 85, 105, 0.5)', borderRadius: 4 },
-                    { label: 'Real', data: [], backgroundColor: '#10b981', borderRadius: 4 }
+                    { label: 'Meta Proyectada', data: [], backgroundColor: 'rgba(71, 85, 105, 0.5)', borderRadius: 4 },
+                    { label: 'Cumplimiento (Real)', data: [], backgroundColor: '#10b981', borderRadius: 4 }
                 ]
             },
             options: {
@@ -92,7 +92,6 @@ function setupGlobalListeners() {
     document.getElementById('btnAll').onclick = () => { setAllCheckboxes(true); };
     document.getElementById('btnClear').onclick = () => { setAllCheckboxes(false); };
     
-    // Auto-update on controls
     document.getElementById('candidateSelect').onchange = renderDashboard;
     document.getElementById('includePartyToggle').onchange = renderDashboard;
     document.getElementById('filterPuesto').oninput = renderDashboard;
@@ -151,7 +150,6 @@ function processData() {
     });
 
     const results = {};
-    const mesaLids = {};
     for (const [lid, puestos] of Object.entries(lMap)) {
         results[lid] = { mesas: [] };
         for (const [p, ms] of Object.entries(puestos)) {
@@ -161,17 +159,8 @@ function processData() {
                     p, m: parseInt(m), voters: d.voters, proyectados: d.voters.length,
                     e14: e14 ? { uS: parseInt(e14['Votos SOLO POR LA LISTA (U)'])||0, u7: parseInt(e14['Partido de la U (Cand 7)'])||0, cS: parseInt(e14['Votos SOLO POR LA LISTA (Conservador)'])||0, c11: parseInt(e14['Conservador (Cand 11)'])||0 } : null
                 });
-                const key = `${p}|${m}`;
-                if (!mesaLids[key]) mesaLids[key] = new Set();
-                mesaLids[key].add(lid);
             }
         }
-    }
-    for (const [lid, res] of Object.entries(results)) {
-        res.mesas.forEach(m => {
-            const all = mesaLids[`${m.p}|${m.m}`] ? [...mesaLids[`${m.p}|${m.m}`]] : [];
-            m.shared = all.filter(l => l !== lid);
-        });
     }
     rawData = { leaders: results, leaderNames: Object.keys(results).sort() };
     populateLeaders();
@@ -203,15 +192,9 @@ function populateLeaders() {
         const div = document.createElement('div');
         div.className = 'checkbox-item px-4 py-2 flex items-center gap-3 cursor-pointer hover:bg-slate-700/20 border-b border-slate-700/30';
         div.innerHTML = `<input type="checkbox" value="${l}" class="leader-checkbox"><span class="text-sm text-slate-300 pointer-events-none">${l}</span>`;
-        
         const cb = div.querySelector('input');
         cb.onchange = (e) => { e.stopPropagation(); renderDashboard(); };
-        div.onclick = (e) => {
-            if (e.target !== cb) {
-                cb.checked = !cb.checked;
-                renderDashboard();
-            }
-        };
+        div.onclick = (e) => { if (e.target !== cb) { cb.checked = !cb.checked; renderDashboard(); } };
         list.appendChild(div);
     });
     renderDashboard();
@@ -219,19 +202,16 @@ function populateLeaders() {
 
 function filterLeaders() {
     const q = document.getElementById('leaderSearch').value.toLowerCase();
-    document.querySelectorAll('.checkbox-item').forEach(it => {
-        const text = it.innerText.toLowerCase();
-        it.style.display = text.includes(q) ? 'flex' : 'none';
-    });
+    document.querySelectorAll('.checkbox-item').forEach(it => { it.style.display = it.innerText.toLowerCase().includes(q) ? 'flex' : 'none'; });
 }
 
-function getVal(m, cid, incP) {
-    if (!m.e14) return null;
+function getOfficialVal(e14, cid, incP) {
+    if (!e14) return null;
     let cv = 0, pv = 0;
-    if (cid === 'U_7') { cv = m.e14.u7; pv = m.e14.uS; }
-    else if (cid === 'U_Solo') { pv = m.e14.uS; }
-    else if (cid === 'Con_11') { cv = m.e14.c11; pv = m.e14.cS; }
-    else if (cid === 'Con_Solo') { pv = m.e14.cS; }
+    if (cid === 'U_7') { cv = e14.u7; pv = e14.uS; }
+    else if (cid === 'U_Solo') { pv = e14.uS; }
+    else if (cid === 'Con_11') { cv = e14.c11; pv = e14.cS; }
+    else if (cid === 'Con_Solo') { pv = e14.cS; }
     return cv + (incP ? pv : 0);
 }
 
@@ -242,14 +222,11 @@ function renderDashboard() {
     const tb = document.getElementById('resultsTableBody');
     const statusContainer = document.getElementById('leaderStatusList');
     
-    // UI Label
-    const btnText = document.getElementById('selectedCountText');
-    if (selected.length === 0) btnText.innerText = "Selecciona líderes...";
-    else btnText.innerText = selected.length === 1 ? selected[0] : `${selected.length} seleccionados`;
+    document.getElementById('selectedCountText').innerText = selected.length === 0 ? "Selecciona líderes..." : (selected.length === 1 ? selected[0] : `${selected.length} seleccionados`);
 
     if (!dataE14 || !dataDiaD) return;
 
-    // Global E14 KPI
+    // GLOBAL E14 KPI (Candidate Total across ALL mesas in E14)
     let gE14 = 0;
     dataE14.forEach(row => {
         let cv = 0, pv = 0;
@@ -262,29 +239,28 @@ function renderDashboard() {
     document.getElementById('kpiGlobal').innerText = gE14.toLocaleString();
 
     let tM=0, tR=0, g=0, y=0, r=0, gr=0, sc=0, mC=0;
-    let rowsHtml = '';
 
     if (selected.length === 0) {
-        tb.innerHTML = '<tr><td colspan="6" class="py-12 text-center text-slate-500 italic text-sm">Escoge un líder para ver resultados detallados.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="6" class="py-12 text-center text-slate-500 italic text-sm">Selecciona líderes para analizar cumplimiento.</td></tr>';
         statusContainer.innerHTML = '<div class="text-center text-slate-500 py-12 italic text-sm">Sin selección...</div>';
         
-        // Global Stats Summary
+        // General Totals (Not capped because not linked to specific goals)
         Object.values(rawData.leaders).forEach(l => {
             l.mesas.forEach(m => {
-                const val = getVal(m, cid, incP);
-                if (val === null) gr++; else if (val >= m.proyectados) g++; else if (val > 0) y++; else r++;
+                const off = getOfficialVal(m.e14, cid, incP);
+                if (off === null) gr++; else if (off > 0) g++; else r++;
             });
         });
         document.getElementById('kpiMeta').innerText = "VOTACIÓN"; document.getElementById('kpiReal').innerText = "GLOBAL";
-        document.getElementById('kpiCumple').innerText = "100%"; document.getElementById('kpiShared').innerText = "0";
-        document.getElementById('kpiAciertos').innerText = "TODOS"; document.getElementById('tableCount').innerText = "Resumen Global";
+        document.getElementById('kpiCumple').innerText = "—"; document.getElementById('kpiShared').innerText = "0";
+        document.getElementById('kpiAciertos').innerText = "TODOS"; document.getElementById('tableCount').innerText = "Global Overview";
         updateDonutChart(g, y, r, gr);
         if (leaderChart) { leaderChart.data.labels=[]; leaderChart.data.datasets[0].data=[]; leaderChart.data.datasets[1].data=[]; leaderChart.update(); }
         currentFilteredMesas = [];
         return;
     }
 
-    const agMesas = [];
+    const uniqueMesas = new Map();
     const cLabels = []; const cMeta = []; const cReal = [];
     let sHtml = '';
 
@@ -294,15 +270,27 @@ function renderDashboard() {
         let lM = 0, lR = 0;
         lData.mesas.forEach(m => {
             lM += m.proyectados;
-            const val = getVal(m, cid, incP);
-            if (val !== null) lR += val;
-            agMesas.push(m);
+            const off = getOfficialVal(m.e14, cid, incP);
+            // Efficiency per leader: min(Goal, Official)
+            const eff = off === null ? 0 : Math.min(m.proyectados, off);
+            lR += eff;
+
+            // Grouping for unique mesas / Table
+            const key = `${m.p}|${m.m}`;
+            if (!uniqueMesas.has(key)) {
+                uniqueMesas.set(key, { ...m, mergedProyectados: m.proyectados, involvedLeaders: [lName], mergedVoters: [...m.voters] });
+            } else {
+                const existing = uniqueMesas.get(key);
+                existing.mergedProyectados += m.proyectados;
+                existing.involvedLeaders.push(lName);
+                existing.mergedVoters.push(...m.voters);
+            }
         });
         cLabels.push(lName); cMeta.push(lM); cReal.push(lR);
         const lPct = lM > 0 ? (lR/lM)*100 : 0;
         let dot = '⚪', cls = 'text-slate-500';
         if (lM > 0) { if (lPct >= 100) { dot='🟢'; cls='text-emerald-400'; } else if (lPct > 0) { dot='🟡'; cls='text-amber-400'; } else { dot='🔴'; cls='text-red-400'; } }
-        sHtml += `<div class="p-3 bg-slate-900/50 rounded-xl border border-slate-800/50 flex justify-between items-center"><div class="flex items-center gap-3 overflow-hidden"><span>${dot}</span><div class="truncate text-xs font-bold text-slate-200">${lName}</div></div><span class="text-sm font-black ${cls}">${lPct.toFixed(0)}%</span></div>`;
+        sHtml += `<div class="p-3 bg-slate-900/50 rounded-xl border border-slate-800/50 flex justify-between items-center"><div class="flex items-center gap-3 overflow-hidden"><span>${dot}</span><div class="truncate text-xs font-bold text-white">${lName}</div></div><span class="text-sm font-black ${cls}">${lPct.toFixed(0)}%</span></div>`;
     });
 
     statusContainer.innerHTML = sHtml;
@@ -313,32 +301,53 @@ function renderDashboard() {
         leaderChart.update();
     }
 
+    // Filtered unique mesas for KPIs and Table
     const fP = document.getElementById('filterPuesto').value.toLowerCase();
     const fM = document.getElementById('filterMesa').value.toLowerCase();
     const fS = document.getElementById('filterStatus').value;
 
-    const filtered = agMesas.sort((a,b) => a.p.localeCompare(b.p)).filter(m => {
-        const val = getVal(m, cid, incP);
-        const st = val === null ? 'gray' : (val >= m.proyectados ? 'green' : (val > 0 ? 'yellow' : 'red'));
+    const filtered = Array.from(uniqueMesas.values()).sort((a,b) => a.p.localeCompare(b.p)).filter(m => {
+        const off = getOfficialVal(m.e14, cid, incP);
+        const st = off === null ? 'gray' : (off >= m.mergedProyectados ? 'green' : (off > 0 ? 'yellow' : 'red'));
         return (fP==='' || m.p.toLowerCase().includes(fP)) && (fM==='' || String(m.m).includes(fM)) && (fS==='all' || st===fS);
     });
 
     currentFilteredMesas = filtered;
+    let rowsHtml = '';
     filtered.forEach(m => {
-        tM += m.proyectados;
-        const val = getVal(m, cid, incP);
-        const real = val === null ? 0 : val;
-        if (val !== null) tR += real;
+        tM += m.mergedProyectados;
+        const off = getOfficialVal(m.e14, cid, incP);
+        // GROUP EFFICIENCY: min(Group Goal, Official Result)
+        const eff = off === null ? 0 : Math.min(m.mergedProyectados, off);
+        tR += eff;
+
         let bc, it, el;
-        if (val === null) { bc='text-slate-400 border-slate-700'; it='⚪ Pendiente'; el='No E14'; gr++; }
-        else if (real >= m.proyectados) { bc='text-emerald-400 border-emerald-800'; it='🟢 Cumplida'; el=`${((real/m.proyectados)*100).toFixed(0)}%`; g++; mC++; }
-        else if (real > 0) { bc='text-amber-400 border-amber-800'; it='🟡 Parcial'; el=`${((real/m.proyectados)*100).toFixed(0)}%`; y++; }
+        if (off === null) { bc='text-slate-400 border-slate-700'; it='⚪ Pendiente'; el='Sin E14'; gr++; }
+        else if (off >= m.mergedProyectados) { bc='text-emerald-400 border-emerald-800'; it='🟢 Cumplida'; el=`${((off/m.mergedProyectados)*100).toFixed(0)}%`; g++; mC++; }
+        else if (off > 0) { bc='text-amber-400 border-amber-800'; it='🟡 Parcial'; el=`${((off/m.mergedProyectados)*100).toFixed(0)}%`; y++; }
         else { bc='text-red-400 border-red-800'; it='🔴 Sin votos'; el='0%'; r++; }
-        const sh = (m.shared || []).filter(l => selected.includes(l));
-        const shH = sh.length ? `<div class="flex flex-wrap gap-1">${sh.map(l => `<span class="bg-amber-900/40 text-amber-400 text-[8px] px-1 rounded">⚠️ ${l}</span>`).join('')}</div>` : '—';
-        if (sh.length) sc++;
-        const vH = m.voters.map(v => `<div class="text-[10px] text-slate-300 border-b border-slate-800/40">${v.n}</div>`).join('');
-        rowsHtml += `<tr class="border-b border-slate-800/40 hover:bg-slate-800/20"><td class="py-3 px-4 text-[11px] text-slate-300 align-top">${m.p}</td><td class="py-3 px-2 text-center text-sm font-bold text-white align-top">${m.m}</td><td class="py-3 px-3 align-top"><div class="max-h-20 overflow-y-auto">${vH}</div></td><td class="py-3 px-3 text-center align-top bg-slate-900/20 text-xl font-bold text-blue-400 border-x border-slate-800/40">${val!==null?val:'—'}</td><td class="py-3 px-3 text-center align-top"><span class="px-2 py-0.5 text-[9px] font-bold border rounded ${bc}">${it}</span><div class="text-[9px] text-slate-500 mt-1">${el}</div></td><td class="py-3 px-2 align-top">${shH}</td></tr>`;
+        
+        const sh = m.involvedLeaders.length > 1;
+        const shH = sh ? `<div class="flex flex-wrap gap-1">${m.involvedLeaders.map(l => `<span class="bg-blue-900/40 text-blue-300 text-[8px] px-1 rounded">👥 ${l}</span>`).join('')}</div>` : '—';
+        if (sh) sc++;
+        
+        const vH = m.mergedVoters.map(v => `<div class="text-[10px] text-slate-300 border-b border-slate-800/40">${v.n}</div>`).join('');
+        
+        rowsHtml += `<tr class="border-b border-slate-800/40 hover:bg-slate-800/20">
+            <td class="py-3 px-4 text-[11px] text-slate-300 align-top">${m.p}</td>
+            <td class="py-3 px-2 text-center text-sm font-bold text-white align-top">${m.m}</td>
+            <td class="py-3 px-3 align-top"><div class="max-h-20 overflow-y-auto">${vH}</div></td>
+            <td class="py-3 px-3 text-center align-top bg-slate-900/20 border-x border-slate-800/40">
+                <div class="text-xl font-bold text-blue-400">${off!==null?eff:'—'}</div>
+                <div class="text-[9px] text-slate-500 italic mt-1">Goal: ${m.mergedProyectados}</div>
+                <div class="text-[9px] text-slate-600">Off: ${off!==null?off:'—'}</div>
+            </td>
+            <td class="py-3 px-3 text-center align-top">
+                <span class="px-2 py-0.5 text-[9px] font-bold border rounded ${bc}">${it}</span>
+                <div class="text-[9px] text-slate-500 mt-1">${el}</div>
+            </td>
+            <td class="py-3 px-2 align-top">${shH}</td>
+        </tr>`;
     });
 
     tb.innerHTML = rowsHtml;
@@ -346,7 +355,8 @@ function renderDashboard() {
     document.getElementById('kpiReal').innerText = tR.toLocaleString();
     document.getElementById('kpiShared').innerText = sc;
     document.getElementById('kpiAciertos').innerText = `${mC} / ${filtered.length}`;
-    document.getElementById('tableCount').innerText = `${filtered.length} Mesas Filtradas`;
+    document.getElementById('tableCount').innerText = `${filtered.length} Unique Mesas`;
+    
     const cP = tM > 0 ? (tR/tM)*100 : 0;
     const kC = document.getElementById('kpiCumple');
     kC.innerText = cP.toFixed(0) + '%';
@@ -355,20 +365,19 @@ function renderDashboard() {
 }
 
 function downloadExcel() {
-    if (typeof XLSX === 'undefined') { alert("Cargando XLSX..."); return; }
-    if (!currentFilteredMesas.length) { alert("Nada seleccionado."); return; }
+    if (typeof XLSX === 'undefined') { alert("Cargando..."); return; }
+    if (!currentFilteredMesas.length) return;
     try {
-        const cid = document.getElementById('candidateSelect').value;
-        const incP = document.getElementById('includePartyToggle').checked;
+        const cid = document.getElementById('candidateSelect').value, incP = document.getElementById('includePartyToggle').checked;
         const data = currentFilteredMesas.map(m => {
-            const v = getVal(m, cid, incP);
-            return { "Puesto": m.p, "Mesa": m.m, "Meta": m.proyectados, "Votos": v||0, "Estado": v===null?'Pendiente':(v>=m.proyectados?'Cumplida':(v>0?'Parcial':'Cero')), "Lideres": (m.shared||[]).join(", ") };
+            const off = getOfficialVal(m.e14, cid, incP);
+            const eff = off === null ? 0 : Math.min(m.mergedProyectados, off);
+            return { "Puesto": m.p, "Mesa": m.m, "Meta": m.mergedProyectados, "Eficacia (Real)": eff, "Oficial E14": off||0, "Lideres": m.involvedLeaders.join(", ") };
         });
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Resumen");
-        XLSX.writeFile(wb, `Reporte_${new Date().toLocaleDateString().replace(/\//g,'-')}.xlsx`);
-    } catch (e) { alert("Error: " + e.message); }
+        const ws = XLSX.utils.json_to_sheet(data), wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+        XLSX.writeFile(wb, `Reporte_Eficacia_${new Date().toLocaleDateString().replace(/\//g,'-')}.xlsx`);
+    } catch (e) { alert("Error"); }
 }
 
 document.addEventListener('DOMContentLoaded', initDashboard);
