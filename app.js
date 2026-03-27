@@ -361,9 +361,10 @@ function renderDashboard() {
         else { bc='text-red-400 bg-red-900/40 border-red-800'; it='🔴 Sin votos'; el='0%'; r++; }
 
         let sh = '—';
-        if (m.sharedLeaders && m.sharedLeaders.length) { 
+        const filteredShared = (m.sharedLeaders || []).filter(l => selectedLeaders.includes(l));
+        if (filteredShared.length) { 
             sc++; 
-            sh = `<div class="flex flex-col gap-1">${m.sharedLeaders.map(l => `<span class="text-[9px] badge-yellow px-1 py-0.5 rounded-sm">⚠️ ${l}</span>`).join('')}</div>`; 
+            sh = `<div class="flex flex-col gap-1">${filteredShared.map(l => `<span class="text-[9px] badge-yellow px-1 py-0.5 rounded-sm">⚠️ ${l}</span>`).join('')}</div>`; 
         }
 
         const vHtml = m.voters.map(v => `<div class="flex items-center gap-1 py-0.5 border-b border-slate-800/50"><div class="text-slate-200 text-[11px]">${v.nombre}</div></div>`).join('');
