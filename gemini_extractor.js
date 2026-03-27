@@ -93,7 +93,7 @@ async function main() {
     const globalBatchStartTime = Date.now();
     
     let results = [];
-    const outputFileName = "Resultados_E14_Gemini_Final.xlsx";
+    const outputFileName = "Consolidado_Votos_E14.xlsx";
     const outputPath = path.join(BASE_DIR, outputFileName);
     
     if (fs.existsSync(outputPath)) {

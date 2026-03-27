@@ -8,7 +8,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-const EXCEL_FILE = path.join(__dirname, '../Resultados_E14_Gemini_Final.xlsx');
+const EXCEL_FILE = path.join(__dirname, '../Consolidado_Votos_E14.xlsx');
 const BASE_DIR = path.join(__dirname, '../');
 
 const PROMPT = `Extrae de este formulario E-14 (acta de escrutinio):

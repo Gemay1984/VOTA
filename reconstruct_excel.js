@@ -9,7 +9,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 const BASE_DIR = 'C:/Users/PC/OneDrive/Escritorio/quindio';
-const EXCEL_FILE = path.join(BASE_DIR, 'Resultados_E14_Gemini_Final.xlsx');
+const EXCEL_FILE = path.join(BASE_DIR, 'Consolidado_Votos_E14.xlsx');
 
 const PROMPT = `Extrae de este formulario E-14 (acta de escrutinio):
 1. 'Departamento'

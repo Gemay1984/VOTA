@@ -11,7 +11,7 @@ app.use(express.static(path.join(__dirname, 'public_dashboard')));
 
 const BASE_DIR = 'C:/Users/PC/OneDrive/Escritorio/quindio';
 const diaDPath = path.join(BASE_DIR, 'dia d (9).xlsx');
-const e14Path = path.join(BASE_DIR, 'Resultados_E14_Gemini_Final.xlsx');
+const e14Path = path.join(BASE_DIR, 'Consolidado_Votos_E14.xlsx');
 
 // Stop words: too common to help identify a specific venue
 const STOP_WORDS = new Set([
@@ -142,9 +142,9 @@ app.get('/api/data', (req, res) => {
                             archivo:       e14Row['Archivo'],
                             zona:          e14Row['Zona'],
                             mesa:          e14Row['Mesa'],
-                            uSoloPartido:  parseInt(e14Row['Partido de la U (Solo Partido)'])  || 0,
-                            uCand6:        parseInt(e14Row['Partido de la U (Cand 6)'])        || 0,
-                            conSoloPartido:parseInt(e14Row['Conservador (Solo Partido)'])      || 0,
+                            uSoloPartido:  parseInt(e14Row['Votos SOLO POR LA LISTA (U)'])      || 0,
+                            uCand7:        parseInt(e14Row['Partido de la U (Cand 7)'])        || 0,
+                            conSoloPartido:parseInt(e14Row['Votos SOLO POR LA LISTA (Conservador)']) || 0,
                             conCand11:     parseInt(e14Row['Conservador (Cand 11)'])           || 0,
                         } : null
                     });
