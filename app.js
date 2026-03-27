@@ -355,29 +355,46 @@ function renderDashboard() {
 }
 
 function downloadExcel() {
-    if (!currentFilteredMesas || currentFilteredMesas.length === 0) { alert("No hay datos filtrados para descargar."); return; }
-    const cid = document.getElementById('candidateSelect').value;
-    const incP = document.getElementById('includePartyToggle').checked;
+    if (typeof XLSX === 'undefined') {
+        alert("La librería de Excel aún no ha cargado. Por favor espera un momento o revisa tu conexión a internet.");
+        return;
+    }
+    
+    if (!currentFilteredMesas || currentFilteredMesas.length === 0) {
+        alert("No hay datos filtrados para descargar. Selecciona líderes y aplica filtros primero.");
+        return;
+    }
 
-    const data = currentFilteredMesas.map(m => {
-        const rv = getVotesFromE14(m.e14, cid, incP);
-        let mStatus = rv === null ? 'No hay E14' : (rv >= m.proyectados ? 'Cumplida' : (rv > 0 ? 'Parcial' : 'Sin votos'));
-        return {
-            "Puesto de Votación": m.puesto,
-            "Mesa": m.mesa,
-            "Personas Proyectadas": m.proyectados,
-            "Votos E-14 (Real)": rv !== null ? rv : 0,
-            "Estado": mStatus,
-            "Porcentaje": m.proyectados > 0 ? `${(( (rv||0) / m.proyectados )*100).toFixed(1)}%` : '0%',
-            "Líderes Shared": (m.sharedLeaders || []).join(", "),
-            "Votantes": m.voters.map(v => v.nombre).join(" | ")
-        };
-    });
+    try {
+        const cid = document.getElementById('candidateSelect').value;
+        const incP = document.getElementById('includePartyToggle').checked;
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Eficacia");
-    XLSX.writeFile(wb, `Reporte_Eficacia_${new Date().toISOString().split('T')[0]}.xlsx`);
+        const data = currentFilteredMesas.map(m => {
+            const rv = getVotesFromE14(m.e14, cid, incP);
+            let mStatus = rv === null ? 'No hay E14' : (rv >= m.proyectados ? 'Cumplida' : (rv > 0 ? 'Parcial' : 'Sin votos'));
+            return {
+                "Puesto de Votación": m.puesto,
+                "Mesa": m.mesa,
+                "Personas Proyectadas": m.proyectados,
+                "Votos E-14 (Real)": rv !== null ? rv : 0,
+                "Estado": mStatus,
+                "Porcentaje": m.proyectados > 0 ? `${(((rv||0) / m.proyectados) * 100).toFixed(1)}%` : '0%',
+                "Líderes Shared": (m.sharedLeaders || []).join(", "),
+                "Votantes": m.voters.map(v => v.nombre).join(" | ")
+            };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Eficacia");
+        
+        // Use a simpler date format for the filename to avoid issues
+        const dateStr = new Date().toLocaleDateString().replace(/\//g, '-');
+        XLSX.writeFile(wb, `Reporte_Eficacia_${dateStr}.xlsx`);
+    } catch (err) {
+        console.error("Error al generar Excel:", err);
+        alert("Hubo un error al generar el archivo Excel: " + err.message);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', initDashboard);
