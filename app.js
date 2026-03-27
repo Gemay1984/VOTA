@@ -1,10 +1,10 @@
 let rawData = { status: 'pending', leaders: {}, leaderNames: [] };
 let donutChart = null;
-let leaderChart = null; // New Comparison Chart
+let leaderChart = null;
 let dataDiaD = null;
 let dataE14 = null;
 let e14ByMesa = {};
-let currentFilteredMesas = []; // Shared for Excel export
+let currentFilteredMesas = [];
 
 const STOP_WORDS = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'en', 'ie', 'col', 'colegio', 'institucion', 'educativa', 'educativo', 'instituto', 'escuela', 'sede', 'puesto', 'and', 'the', 'num', 'no', 'mesa', 'urna', 'sd', 'principal', 'nuestra', 'senora', 'juan', 'maria', 'jose', 'santa', 'san', 'santander', 'normal', 'superior']);
 
@@ -25,10 +25,8 @@ const ABBREV_EXPAND = {
 function initDashboard() {
     setupEventListeners();
     initCharts();
-    
     const savedApiUrl = localStorage.getItem('apiUrl');
     if (savedApiUrl) document.getElementById('apiUrl').value = savedApiUrl;
-
     syncData();
 }
 
@@ -43,14 +41,10 @@ function initCharts() {
                 data: [0, 0, 0, 1],
                 backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#475569'],
                 borderColor: ['#064e3b', '#78350f', '#7f1d1d', '#1e293b'],
-                borderWidth: 2, hoverOffset: 6
+                borderWidth: 2
             }]
         },
-        options: {
-            cutout: '70%',
-            plugins: { legend: { display: false }, tooltip: { enabled: true } },
-            animation: { animateRotate: true, duration: 600 }
-        }
+        options: { cutout: '70%', plugins: { legend: { display: false } } }
     });
 
     // 2. Leader Comparison Chart
@@ -60,44 +54,17 @@ function initCharts() {
         data: {
             labels: [],
             datasets: [
-                {
-                    label: 'Meta Proyectada',
-                    data: [],
-                    backgroundColor: 'rgba(71, 85, 105, 0.4)',
-                    borderColor: '#475569',
-                    borderWidth: 1,
-                    borderRadius: 4
-                },
-                {
-                    label: 'Votos Reales',
-                    data: [],
-                    backgroundColor: '#10b981',
-                    borderColor: '#064e3b',
-                    borderWidth: 1,
-                    borderRadius: 4
-                }
+                { label: 'Meta', data: [], backgroundColor: 'rgba(71, 85, 105, 0.4)', borderRadius: 4 },
+                { label: 'Real', data: [], backgroundColor: '#10b981', borderRadius: 4 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             scales: {
-                y: { 
-                    beginAtZero: true, 
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: { color: '#94a3b8', font: { size: 10 } }
-                },
-                x: { 
-                    grid: { display: false },
-                    ticks: { color: '#e2e8f0', font: { size: 10, weight: 'bold' } }
-                }
+                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                x: { ticks: { color: '#e2e8f0', font: { size: 10 } } }
             },
-            plugins: {
-                legend: { 
-                    position: 'top', 
-                    labels: { color: '#e2e8f0', boxWidth: 12, padding: 20, font: { size: 11 } } 
-                }
-            }
+            plugins: { legend: { labels: { color: '#e2e8f0' } } }
         }
     });
 }
@@ -116,25 +83,20 @@ function updateDonutChart(green, yellow, red, gray) {
 
 function setupEventListeners() {
     document.getElementById('btnSync').addEventListener('click', syncData);
-    
     const btn = document.getElementById('leaderSelectBtn');
     const dropdown = document.getElementById('leaderDropdown');
-    const search = document.getElementById('leaderSearch');
-    
-    btn.addEventListener('click', (e) => { e.stopPropagation(); dropdown.classList.toggle('show'); });
-    document.addEventListener('click', (e) => { if (!dropdown.contains(e.target) && e.target !== btn) dropdown.classList.remove('show'); });
+    btn.onclick = (e) => { e.stopPropagation(); dropdown.classList.toggle('show'); };
+    document.onclick = (e) => { if (!dropdown.contains(e.target) && e.target !== btn) dropdown.classList.remove('show'); };
 
-    search.addEventListener('input', filterLeaders);
-    document.getElementById('btnAll').addEventListener('click', selectAllLeaders);
-    document.getElementById('btnClear').addEventListener('click', clearAllLeaders);
-    
-    document.getElementById('candidateSelect').addEventListener('change', renderDashboard);
-    document.getElementById('includePartyToggle').addEventListener('change', renderDashboard);
-    
-    document.getElementById('filterPuesto').addEventListener('input', renderDashboard);
-    document.getElementById('filterMesa').addEventListener('input', renderDashboard);
-    document.getElementById('filterStatus').addEventListener('change', renderDashboard);
-    document.getElementById('btnDownloadExcel').addEventListener('click', downloadExcel);
+    document.getElementById('leaderSearch').oninput = filterLeaders;
+    document.getElementById('btnAll').onclick = selectAllLeaders;
+    document.getElementById('btnClear').onclick = clearAllLeaders;
+    document.getElementById('candidateSelect').onchange = renderDashboard;
+    document.getElementById('includePartyToggle').onchange = renderDashboard;
+    document.getElementById('filterPuesto').oninput = renderDashboard;
+    document.getElementById('filterMesa').oninput = renderDashboard;
+    document.getElementById('filterStatus').onchange = renderDashboard;
+    document.getElementById('btnDownloadExcel').onclick = downloadExcel;
 }
 
 async function syncData() {
@@ -155,10 +117,7 @@ async function syncData() {
 function setStatus(text, color, anim) {
     const b = document.getElementById('statusBadge');
     b.className = `mt-4 md:mt-0 px-4 py-2 rounded-full badge-${color} text-sm font-medium flex items-center gap-2`;
-    b.innerHTML = `<span class="relative flex h-3 w-3">
-        ${anim ? '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>' : ''}
-        <span class="relative inline-flex rounded-full h-3 w-3 bg-${color}-500"></span>
-    </span> ${text}`;
+    b.innerHTML = `<span class="relative flex h-3 w-3">${anim ? '<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>' : ''}<span class="relative inline-flex rounded-full h-3 w-3 bg-${color}-500"></span></span> ${text}`;
 }
 
 function processData() {
@@ -182,43 +141,29 @@ function processData() {
         if (!leaderMapTmp[lider]) leaderMapTmp[lider] = {};
         if (!leaderMapTmp[lider][puesto]) leaderMapTmp[lider][puesto] = {};
         if (!leaderMapTmp[lider][puesto][mesa]) leaderMapTmp[lider][puesto][mesa] = { voters: [] };
-        leaderMapTmp[lider][puesto][mesa].voters.push({
-            nombre: String(row['Nombres y Apellidos'] || '').trim(),
-            cedula: String(row['Cedula'] || '').trim()
-        });
+        leaderMapTmp[lider][puesto][mesa].voters.push({ nombre: String(row['Nombres y Apellidos'] || '').trim(), cedula: String(row['Cedula'] || '').trim() });
     });
 
     const leaderResults = {};
     const mesaLeaderIdx = {};
-
     for (const [lider, puestos] of Object.entries(leaderMapTmp)) {
         leaderResults[lider] = { mesas: [] };
         for (const [puesto, mesasObj] of Object.entries(puestos)) {
             for (const [mesa, data] of Object.entries(mesasObj)) {
                 const e14Match = findE14Match(puesto, mesa);
-                leaderResults[lider].mesas.push({
-                    puesto, mesa: parseInt(mesa), voters: data.voters, proyectados: data.voters.length,
-                    e14: e14Match ? {
-                        uSoloLista: parseInt(e14Match['Votos SOLO POR LA LISTA (U)']) || 0,
-                        uCand7: parseInt(e14Match['Partido de la U (Cand 7)']) || 0,
-                        conSoloLista: parseInt(e14Match['Votos SOLO POR LA LISTA (Conservador)']) || 0,
-                        conCand11: parseInt(e14Match['Conservador (Cand 11)']) || 0,
-                    } : null
-                });
+                leaderResults[lider].mesas.push({ puesto, mesa: parseInt(mesa), voters: data.voters, proyectados: data.voters.length, e14: e14Match ? { uSoloLista: parseInt(e14Match['Votos SOLO POR LA LISTA (U)']) || 0, uCand7: parseInt(e14Match['Partido de la U (Cand 7)']) || 0, conSoloLista: parseInt(e14Match['Votos SOLO POR LA LISTA (Conservador)']) || 0, conCand11: parseInt(e14Match['Conservador (Cand 11)']) || 0 } : null });
                 const key = `${puesto}|${mesa}`;
                 if (!mesaLeaderIdx[key]) mesaLeaderIdx[key] = new Set();
                 mesaLeaderIdx[key].add(lider);
             }
         }
     }
-
     for (const [lid, res] of Object.entries(leaderResults)) {
         res.mesas.forEach(m => {
             const all = mesaLeaderIdx[`${m.puesto}|${m.mesa}`] ? [...mesaLeaderIdx[`${m.puesto}|${m.mesa}`]] : [];
             m.sharedLeaders = all.filter(l => l !== lid);
         });
     }
-
     rawData = { status: 'success', leaders: leaderResults, leaderNames: Object.keys(leaderResults).sort() };
     populateLeaders();
 }
@@ -226,8 +171,7 @@ function processData() {
 function getKeyWords(str) {
     if (!str) return [];
     let s = String(str).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    s = s.replace(/\bmesa\s+\d+\b/g, '').replace(/\burna\s+\d+\b/g, '');
-    s = s.replace(/\bi\.e\.?\b/g, 'ie').replace(/\bi\s+e\b/g, 'ie').replace(/\bsd\b/g, 'sede');
+    s = s.replace(/\bmesa\s+\d+\b/g, '').replace(/\burna\s+\d+\b/g, '').replace(/\bi\.e\.?\b/g, 'ie').replace(/\bi\s+e\b/g, 'ie').replace(/\bsd\b/g, 'sede');
     s = s.replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
     return s.split(' ').map(w => ABBREV_EXPAND[w] || w).join(' ').split(' ').filter(w => w.length >= 3 && !STOP_WORDS.has(w));
 }
@@ -252,7 +196,11 @@ function populateLeaders() {
         const item = document.createElement('div');
         item.className = 'checkbox-item px-4 py-2 flex items-center gap-3 cursor-pointer transition-colors border-b border-slate-700/30';
         item.innerHTML = `<input type="checkbox" value="${l}" class="leader-checkbox"><span class="text-sm text-slate-300 truncate">${l}</span>`;
-        item.onclick = (e) => { if (e.target.tagName !== 'INPUT') { const cb = item.querySelector('input'); cb.checked = !cb.checked; } renderDashboard(); };
+        item.onclick = (e) => { 
+            const cb = item.querySelector('input'); 
+            if (e.target.tagName !== 'INPUT') { cb.checked = !cb.checked; }
+            renderDashboard();
+        };
         list.appendChild(item);
     });
     renderDashboard();
@@ -293,7 +241,6 @@ function renderDashboard() {
 
     if (!dataE14 || !dataDiaD) return;
 
-    // GLOBAL KPI
     let globalE14 = 0;
     dataE14.forEach(row => {
         let cv = 0, pv = 0;
@@ -327,7 +274,6 @@ function renderDashboard() {
         return;
     }
     
-    // Aggregation per selected leader and Global
     const aggregatedMesas = [];
     const chartLabels = [];
     const chartMeta = [];
@@ -337,7 +283,6 @@ function renderDashboard() {
     selectedLeaders.forEach(lName => {
         const lData = rawData.leaders[lName];
         if (!lData) return;
-        
         let lMeta = 0, lReal = 0;
         lData.mesas.forEach(m => {
             lMeta += m.proyectados;
@@ -345,33 +290,15 @@ function renderDashboard() {
             if (rv !== null) lReal += rv;
             aggregatedMesas.push(m);
         });
-
-        chartLabels.push(lName);
-        chartMeta.push(lMeta);
-        chartReal.push(lReal);
-
+        chartLabels.push(lName); chartMeta.push(lMeta); chartReal.push(lReal);
         const lPct = lMeta > 0 ? (lReal / lMeta) * 100 : 0;
-        let lColor = 'text-slate-400';
-        let lDot = '⚪';
+        let lColor = 'text-slate-400', lDot = '⚪';
         if (lMeta > 0) {
             if (lPct >= 100) { lDot = '🟢'; lColor = 'text-emerald-400'; }
             else if (lPct > 0) { lDot = '🟡'; lColor = 'text-amber-400'; }
             else { lDot = '🔴'; lColor = 'text-red-400'; }
         }
-
-        statusHtml += `
-            <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-800/50">
-                <div class="flex items-center gap-3 min-w-0">
-                    <span class="text-lg">${lDot}</span>
-                    <div class="truncate">
-                        <div class="text-xs font-bold text-slate-200 truncate">${lName}</div>
-                        <div class="text-[10px] text-slate-500">${lReal} de ${lMeta} votos</div>
-                    </div>
-                </div>
-                <div class="text-right ml-2">
-                    <div class="text-sm font-black ${lColor}">${lPct.toFixed(0)}%</div>
-                </div>
-            </div>`;
+        statusHtml += `<div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-800/50"><div class="flex items-center gap-3 min-w-0"><span class="text-lg">${lDot}</span><div class="truncate"><div class="text-xs font-bold text-slate-200 truncate">${lName}</div><div class="text-[10px] text-slate-500">${lReal} de ${lMeta} votos</div></div></div><div class="text-right ml-2"><div class="text-sm font-black ${lColor}">${lPct.toFixed(0)}%</div></div></div>`;
     });
 
     statusContainer.innerHTML = statusHtml;
@@ -380,7 +307,6 @@ function renderDashboard() {
     leaderChart.data.datasets[1].data = chartReal;
     leaderChart.update();
 
-    // Table Filtering
     const fPuesto = document.getElementById('filterPuesto').value.toLowerCase();
     const fMesa = document.getElementById('filterMesa').value.toLowerCase();
     const fStatus = document.getElementById('filterStatus').value;
@@ -395,33 +321,21 @@ function renderDashboard() {
     });
 
     currentFilteredMesas = filteredMesas;
-
     filteredMesas.forEach(m => {
         tMeta += m.proyectados;
         const rv = getVotesFromE14(m.e14, cid, incP);
         const real = rv === null ? 0 : rv;
         if (rv !== null) tReal += real;
-
         let bc, it, el;
         if (rv === null) { bc='text-slate-400 bg-slate-800 border-slate-700'; it='⚪ No hay E14'; el='Pendiente'; gr++; }
         else if (real >= m.proyectados) { bc='text-emerald-400 bg-emerald-900/40 border-emerald-800'; it='🟢 Cumplida'; el=`${((real/m.proyectados)*100).toFixed(0)}%`; g++; mCub++; }
         else if (real > 0) { bc='text-amber-400 bg-amber-900/40 border-amber-800'; it='🟡 Parcial'; el=`${((real/m.proyectados)*100).toFixed(0)}%`; y++; }
         else { bc='text-red-400 bg-red-900/40 border-red-800'; it='🔴 Sin votos'; el='0%'; r++; }
-
-        let sh = '—';
         const filteredShared = (m.sharedLeaders || []).filter(l => selectedLeaders.includes(l));
-        if (filteredShared.length) { sc++; sh = `<div class="flex flex-col gap-1">${filteredShared.map(l => `<span class="text-[9px] badge-yellow px-1 py-0.5 rounded-sm">⚠️ ${l}</span>`).join('')}</div>`; }
-
+        let sh = filteredShared.length ? `<div class="flex flex-col gap-1">${filteredShared.map(l => `<span class="text-[9px] badge-yellow px-1 py-0.5 rounded-sm">⚠️ ${l}</span>`).join('')}</div>` : '—';
+        if (filteredShared.length) sc++;
         const vHtml = m.voters.map(v => `<div class="flex items-center gap-1 py-0.5 border-b border-slate-800/50 text-slate-200 text-[11px]">${v.nombre}</div>`).join('');
-        
-        rows += `<tr class="hover:bg-slate-800/40 border-b border-slate-800/50">
-            <td class="py-3 px-4 align-top text-slate-300 text-[11px]">${m.puesto}</td>
-            <td class="py-3 px-2 text-center align-top font-bold text-white text-sm">${m.mesa}</td>
-            <td class="py-3 px-3 align-top"><div class="max-h-24 overflow-y-auto pr-1">${vHtml}</div></td>
-            <td class="py-3 px-3 text-center align-top border-l border-slate-700/30 bg-slate-900/20 text-2xl font-bold text-blue-400">${rv !== null ? real : '—'}</td>
-            <td class="py-3 px-3 text-center align-top"><span class="px-2 py-0.5 text-[10px] font-bold rounded-md border ${bc}">${it}</span><div class="text-slate-500 text-[10px] mt-1">${el}</div></td>
-            <td class="py-3 px-2 align-top">${sh}</td>
-        </tr>`;
+        rows += `<tr class="hover:bg-slate-800/40 border-b border-slate-800/50"><td class="py-3 px-4 align-top text-slate-300 text-[11px]">${m.puesto}</td><td class="py-3 px-2 text-center align-top font-bold text-white text-sm">${m.mesa}</td><td class="py-3 px-3 align-top"><div class="max-h-24 overflow-y-auto pr-1">${vHtml}</div></td><td class="py-3 px-3 text-center align-top border-l border-slate-700/30 bg-slate-900/20 text-2xl font-bold text-blue-400">${rv !== null ? real : '—'}</td><td class="py-3 px-3 text-center align-top"><span class="px-2 py-0.5 text-[10px] font-bold rounded-md border ${bc}">${it}</span><div class="text-slate-500 text-[10px] mt-1">${el}</div></td><td class="py-3 px-2 align-top">${sh}</td></tr>`;
     });
 
     tb.innerHTML = rows;
@@ -430,41 +344,27 @@ function renderDashboard() {
     document.getElementById('kpiShared').innerText = sc;
     document.getElementById('kpiAciertos').innerText = `${mCub} / ${filteredMesas.length}`;
     document.getElementById('tableCount').innerText = `${filteredMesas.length} Mesas Encontradas`;
-
     const cPct = tMeta > 0 ? (tReal / tMeta) * 100 : 0;
     const kpiCumple = document.getElementById('kpiCumple');
     kpiCumple.innerText = cPct.toFixed(0) + '%';
     kpiCumple.className = `text-2xl font-bold mt-1 ${cPct >= 100 ? 'text-emerald-400' : cPct >= 50 ? 'text-amber-400' : 'text-red-400'}`;
-
     updateDonutChart(g, y, r, gr);
 }
 
 function downloadExcel() {
-    if (typeof XLSX === 'undefined') { alert("La librería de Excel aún no ha cargado. Por favor espera."); return; }
-    if (!currentFilteredMesas || currentFilteredMesas.length === 0) { alert("No hay datos filtrados para descargar."); return; }
+    if (typeof XLSX === 'undefined') { alert("La librería de Excel aún no ha cargado."); return; }
+    if (!currentFilteredMesas || currentFilteredMesas.length === 0) { alert("No hay datos para descargar."); return; }
     try {
-        const cid = document.getElementById('candidateSelect').value;
-        const incP = document.getElementById('includePartyToggle').checked;
+        const cid = document.getElementById('candidateSelect').value, incP = document.getElementById('includePartyToggle').checked;
         const data = currentFilteredMesas.map(m => {
             const rv = getVotesFromE14(m.e14, cid, incP);
-            let mStatus = rv === null ? 'No hay E14' : (rv >= m.proyectados ? 'Cumplida' : (rv > 0 ? 'Parcial' : 'Sin votos'));
-            return {
-                "Puesto de Votación": m.puesto,
-                "Mesa": m.mesa,
-                "Personas Proyectadas": m.proyectados,
-                "Votos E-14 (Real)": rv !== null ? rv : 0,
-                "Estado": mStatus,
-                "Porcentaje": m.proyectados > 0 ? `${(((rv||0) / m.proyectados) * 100).toFixed(1)}%` : '0%',
-                "Líderes Shared": (m.sharedLeaders || []).join(", "),
-                "Votantes": m.voters.map(v => v.nombre).join(" | ")
-            };
+            const mStatus = rv === null ? 'No hay E14' : (rv >= m.proyectados ? 'Cumplida' : (rv > 0 ? 'Parcial' : 'Sin votos'));
+            return { "Puesto": m.puesto, "Mesa": m.mesa, "Meta": m.proyectados, "Votos": rv || 0, "Estado": mStatus, "%": m.proyectados > 0 ? (((rv||0)/m.proyectados)*100).toFixed(1)+'%' : '0%', "Compartido": (m.sharedLeaders || []).join(", ") };
         });
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Eficacia");
-        const dateStr = new Date().toLocaleDateString().replace(/\//g, '-');
-        XLSX.writeFile(wb, `Reporte_Eficacia_${dateStr}.xlsx`);
-    } catch (err) { alert("Error al generar Excel: " + err.message); }
+        const ws = XLSX.utils.json_to_sheet(data), wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+        XLSX.writeFile(wb, `Reporte_${new Date().toLocaleDateString().replace(/\//g,'-')}.xlsx`);
+    } catch (err) { alert("Error: " + err.message); }
 }
 
 document.addEventListener('DOMContentLoaded', initDashboard);
