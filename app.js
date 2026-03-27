@@ -1,5 +1,6 @@
 let rawData = { status: 'pending', leaders: {}, leaderNames: [] };
 let donutChart = null;
+let leaderChart = null; // New Comparison Chart
 let dataDiaD = null;
 let dataE14 = null;
 let e14ByMesa = {};
@@ -23,7 +24,7 @@ const ABBREV_EXPAND = {
 
 function initDashboard() {
     setupEventListeners();
-    initDonutChart();
+    initCharts();
     
     const savedApiUrl = localStorage.getItem('apiUrl');
     if (savedApiUrl) document.getElementById('apiUrl').value = savedApiUrl;
@@ -31,9 +32,10 @@ function initDashboard() {
     syncData();
 }
 
-function initDonutChart() {
-    const ctx = document.getElementById('donutChart').getContext('2d');
-    donutChart = new Chart(ctx, {
+function initCharts() {
+    // 1. Donut Chart
+    const ctxD = document.getElementById('donutChart').getContext('2d');
+    donutChart = new Chart(ctxD, {
         type: 'doughnut',
         data: {
             labels: ['Cubiertas 🟢', 'Parciales 🟡', 'Sin votos 🔴', 'Sin datos ⚪'],
@@ -50,18 +52,64 @@ function initDonutChart() {
             animation: { animateRotate: true, duration: 600 }
         }
     });
+
+    // 2. Leader Comparison Chart
+    const ctxL = document.getElementById('leaderChart').getContext('2d');
+    leaderChart = new Chart(ctxL, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Meta Proyectada',
+                    data: [],
+                    backgroundColor: 'rgba(71, 85, 105, 0.4)',
+                    borderColor: '#475569',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Votos Reales',
+                    data: [],
+                    backgroundColor: '#10b981',
+                    borderColor: '#064e3b',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#94a3b8', font: { size: 10 } }
+                },
+                x: { 
+                    grid: { display: false },
+                    ticks: { color: '#e2e8f0', font: { size: 10, weight: 'bold' } }
+                }
+            },
+            plugins: {
+                legend: { 
+                    position: 'top', 
+                    labels: { color: '#e2e8f0', boxWidth: 12, padding: 20, font: { size: 11 } } 
+                }
+            }
+        }
+    });
 }
 
 function updateDonutChart(green, yellow, red, gray) {
     const total = green + yellow + red;
     const pct = total > 0 ? ((green / total) * 100).toFixed(0) + '%' : '0%';
-    
     document.getElementById('lblGreen').innerText = green;
     document.getElementById('lblYellow').innerText = yellow;
     document.getElementById('lblRed').innerText = red;
     document.getElementById('lblGray').innerText = gray;
     document.getElementById('donutPct').innerText = pct;
-
     donutChart.data.datasets[0].data = [green, yellow, red, gray];
     donutChart.update();
 }
@@ -73,16 +121,8 @@ function setupEventListeners() {
     const dropdown = document.getElementById('leaderDropdown');
     const search = document.getElementById('leaderSearch');
     
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dropdown.classList.toggle('show');
-    });
-    
-    document.addEventListener('click', (e) => {
-        if (!dropdown.contains(e.target) && e.target !== btn) {
-            dropdown.classList.remove('show');
-        }
-    });
+    btn.addEventListener('click', (e) => { e.stopPropagation(); dropdown.classList.toggle('show'); });
+    document.addEventListener('click', (e) => { if (!dropdown.contains(e.target) && e.target !== btn) dropdown.classList.remove('show'); });
 
     search.addEventListener('input', filterLeaders);
     document.getElementById('btnAll').addEventListener('click', selectAllLeaders);
@@ -91,7 +131,6 @@ function setupEventListeners() {
     document.getElementById('candidateSelect').addEventListener('change', renderDashboard);
     document.getElementById('includePartyToggle').addEventListener('change', renderDashboard);
     
-    // Table filter listeners
     document.getElementById('filterPuesto').addEventListener('input', renderDashboard);
     document.getElementById('filterMesa').addEventListener('input', renderDashboard);
     document.getElementById('filterStatus').addEventListener('change', renderDashboard);
@@ -101,10 +140,8 @@ function setupEventListeners() {
 async function syncData() {
     const apiUrl = document.getElementById('apiUrl').value.trim();
     if (!apiUrl) return;
-
     localStorage.setItem('apiUrl', apiUrl);
     setStatus('Sincronizando...', 'yellow', true);
-
     try {
         const res = await fetch(apiUrl).then(r => r.ok ? r.json() : Promise.reject('Error de conexión'));
         if (res.error) throw new Error(res.error);
@@ -112,10 +149,7 @@ async function syncData() {
         dataE14 = res.e14;
         processData();
         setStatus('Datos Listos', 'green', false);
-    } catch (err) {
-        console.error(err);
-        setStatus('Error de Conexión', 'red', false);
-    }
+    } catch (err) { console.error(err); setStatus('Error de Conexión', 'red', false); }
 }
 
 function setStatus(text, color, anim) {
@@ -202,13 +236,13 @@ function findE14Match(puesto, mesa) {
     const candidates = e14ByMesa[parseInt(mesa)] || [];
     const puestoWords = getKeyWords(puesto);
     if (!puestoWords.length || !candidates.length) return null;
-    let best = null, bestScore = 0;
+    let b = null, bs = 0;
     candidates.forEach(c => {
         let score = 0;
         puestoWords.forEach(w => { c.folderWords.forEach(fw => { if (fw.includes(w) || w.includes(fw)) score++; }); });
-        if (score > bestScore) { bestScore = score; best = c; }
+        if (score > bs) { bs = score; b = c; }
     });
-    return bestScore >= 1 ? best.row : null;
+    return bs >= 1 ? b.row : null;
 }
 
 function populateLeaders() {
@@ -218,10 +252,7 @@ function populateLeaders() {
         const item = document.createElement('div');
         item.className = 'checkbox-item px-4 py-2 flex items-center gap-3 cursor-pointer transition-colors border-b border-slate-700/30';
         item.innerHTML = `<input type="checkbox" value="${l}" class="leader-checkbox"><span class="text-sm text-slate-300 truncate">${l}</span>`;
-        item.addEventListener('click', (e) => {
-            if (e.target.tagName !== 'INPUT') { const cb = item.querySelector('input'); cb.checked = !cb.checked; }
-            renderDashboard();
-        });
+        item.onclick = (e) => { if (e.target.tagName !== 'INPUT') { const cb = item.querySelector('input'); cb.checked = !cb.checked; } renderDashboard(); };
         list.appendChild(item);
     });
     renderDashboard();
@@ -253,6 +284,7 @@ function renderDashboard() {
     const cid = document.getElementById('candidateSelect').value;
     const incP = document.getElementById('includePartyToggle').checked;
     const tb = document.getElementById('resultsTableBody');
+    const statusContainer = document.getElementById('leaderStatusList');
 
     const selectBtnText = document.getElementById('selectedCountText');
     if (selectedLeaders.length === 0) selectBtnText.innerText = "Selecciona uno o varios líderes...";
@@ -261,6 +293,7 @@ function renderDashboard() {
 
     if (!dataE14 || !dataDiaD) return;
 
+    // GLOBAL KPI
     let globalE14 = 0;
     dataE14.forEach(row => {
         let cv = 0, pv = 0;
@@ -276,7 +309,8 @@ function renderDashboard() {
     let rows = '';
 
     if (selectedLeaders.length === 0) {
-        tb.innerHTML = '<tr><td colspan="6" class="py-12 text-center text-slate-500 italic">Sincronización Exitosa. Selecciona uno o más líderes para ver el detalle.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="6" class="py-12 text-center text-slate-500 italic text-sm">Selecciona uno o más líderes para ver el detalle.</td></tr>';
+        statusContainer.innerHTML = '<div class="text-center text-slate-500 py-12 italic text-sm">Selecciona líderes para ver su estado...</div>';
         Object.values(rawData.leaders).forEach(l => {
             l.mesas.forEach(m => {
                 const rv = getVotesFromE14(m.e14, cid, incP);
@@ -288,19 +322,70 @@ function renderDashboard() {
         document.getElementById('kpiCumple').innerText = "100%"; document.getElementById('kpiShared').innerText = "0";
         document.getElementById('kpiAciertos').innerText = "General"; document.getElementById('tableCount').innerText = "Resumen Global";
         updateDonutChart(g, y, r, gr);
+        leaderChart.data.labels = []; leaderChart.data.datasets[0].data = []; leaderChart.data.datasets[1].data = []; leaderChart.update();
         currentFilteredMesas = [];
         return;
     }
     
+    // Aggregation per selected leader and Global
     const aggregatedMesas = [];
-    selectedLeaders.forEach(lName => { if (rawData.leaders[lName]) aggregatedMesas.push(...rawData.leaders[lName].mesas); });
-    aggregatedMesas.sort((a,b) => a.puesto.localeCompare(b.puesto));
+    const chartLabels = [];
+    const chartMeta = [];
+    const chartReal = [];
+    let statusHtml = '';
 
+    selectedLeaders.forEach(lName => {
+        const lData = rawData.leaders[lName];
+        if (!lData) return;
+        
+        let lMeta = 0, lReal = 0;
+        lData.mesas.forEach(m => {
+            lMeta += m.proyectados;
+            const rv = getVotesFromE14(m.e14, cid, incP);
+            if (rv !== null) lReal += rv;
+            aggregatedMesas.push(m);
+        });
+
+        chartLabels.push(lName);
+        chartMeta.push(lMeta);
+        chartReal.push(lReal);
+
+        const lPct = lMeta > 0 ? (lReal / lMeta) * 100 : 0;
+        let lColor = 'text-slate-400';
+        let lDot = '⚪';
+        if (lMeta > 0) {
+            if (lPct >= 100) { lDot = '🟢'; lColor = 'text-emerald-400'; }
+            else if (lPct > 0) { lDot = '🟡'; lColor = 'text-amber-400'; }
+            else { lDot = '🔴'; lColor = 'text-red-400'; }
+        }
+
+        statusHtml += `
+            <div class="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-800/50">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="text-lg">${lDot}</span>
+                    <div class="truncate">
+                        <div class="text-xs font-bold text-slate-200 truncate">${lName}</div>
+                        <div class="text-[10px] text-slate-500">${lReal} de ${lMeta} votos</div>
+                    </div>
+                </div>
+                <div class="text-right ml-2">
+                    <div class="text-sm font-black ${lColor}">${lPct.toFixed(0)}%</div>
+                </div>
+            </div>`;
+    });
+
+    statusContainer.innerHTML = statusHtml;
+    leaderChart.data.labels = chartLabels;
+    leaderChart.data.datasets[0].data = chartMeta;
+    leaderChart.data.datasets[1].data = chartReal;
+    leaderChart.update();
+
+    // Table Filtering
     const fPuesto = document.getElementById('filterPuesto').value.toLowerCase();
     const fMesa = document.getElementById('filterMesa').value.toLowerCase();
     const fStatus = document.getElementById('filterStatus').value;
 
-    const filteredMesas = aggregatedMesas.filter(m => {
+    const filteredMesas = aggregatedMesas.sort((a,b) => a.puesto.localeCompare(b.puesto)).filter(m => {
         const rv = getVotesFromE14(m.e14, cid, incP);
         let mStatus = rv === null ? 'gray' : (rv >= m.proyectados ? 'green' : (rv > 0 ? 'yellow' : 'red'));
         const matchPuesto = fPuesto === '' || m.puesto.toLowerCase().includes(fPuesto);
@@ -330,7 +415,7 @@ function renderDashboard() {
         const vHtml = m.voters.map(v => `<div class="flex items-center gap-1 py-0.5 border-b border-slate-800/50 text-slate-200 text-[11px]">${v.nombre}</div>`).join('');
         
         rows += `<tr class="hover:bg-slate-800/40 border-b border-slate-800/50">
-            <td class="py-3 px-4 align-top text-slate-300 text-xs">${m.puesto}</td>
+            <td class="py-3 px-4 align-top text-slate-300 text-[11px]">${m.puesto}</td>
             <td class="py-3 px-2 text-center align-top font-bold text-white text-sm">${m.mesa}</td>
             <td class="py-3 px-3 align-top"><div class="max-h-24 overflow-y-auto pr-1">${vHtml}</div></td>
             <td class="py-3 px-3 text-center align-top border-l border-slate-700/30 bg-slate-900/20 text-2xl font-bold text-blue-400">${rv !== null ? real : '—'}</td>
@@ -346,29 +431,20 @@ function renderDashboard() {
     document.getElementById('kpiAciertos').innerText = `${mCub} / ${filteredMesas.length}`;
     document.getElementById('tableCount').innerText = `${filteredMesas.length} Mesas Encontradas`;
 
-    const cumpleNum = tMeta > 0 ? (tReal / tMeta) * 100 : 0;
+    const cPct = tMeta > 0 ? (tReal / tMeta) * 100 : 0;
     const kpiCumple = document.getElementById('kpiCumple');
-    kpiCumple.innerText = cumpleNum.toFixed(0) + '%';
-    kpiCumple.className = `text-2xl font-bold mt-1 ${cumpleNum >= 100 ? 'text-emerald-400' : cumpleNum >= 50 ? 'text-amber-400' : 'text-red-400'}`;
+    kpiCumple.innerText = cPct.toFixed(0) + '%';
+    kpiCumple.className = `text-2xl font-bold mt-1 ${cPct >= 100 ? 'text-emerald-400' : cPct >= 50 ? 'text-amber-400' : 'text-red-400'}`;
 
     updateDonutChart(g, y, r, gr);
 }
 
 function downloadExcel() {
-    if (typeof XLSX === 'undefined') {
-        alert("La librería de Excel aún no ha cargado. Por favor espera un momento o revisa tu conexión a internet.");
-        return;
-    }
-    
-    if (!currentFilteredMesas || currentFilteredMesas.length === 0) {
-        alert("No hay datos filtrados para descargar. Selecciona líderes y aplica filtros primero.");
-        return;
-    }
-
+    if (typeof XLSX === 'undefined') { alert("La librería de Excel aún no ha cargado. Por favor espera."); return; }
+    if (!currentFilteredMesas || currentFilteredMesas.length === 0) { alert("No hay datos filtrados para descargar."); return; }
     try {
         const cid = document.getElementById('candidateSelect').value;
         const incP = document.getElementById('includePartyToggle').checked;
-
         const data = currentFilteredMesas.map(m => {
             const rv = getVotesFromE14(m.e14, cid, incP);
             let mStatus = rv === null ? 'No hay E14' : (rv >= m.proyectados ? 'Cumplida' : (rv > 0 ? 'Parcial' : 'Sin votos'));
@@ -383,18 +459,12 @@ function downloadExcel() {
                 "Votantes": m.voters.map(v => v.nombre).join(" | ")
             };
         });
-
         const ws = XLSX.utils.json_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Eficacia");
-        
-        // Use a simpler date format for the filename to avoid issues
         const dateStr = new Date().toLocaleDateString().replace(/\//g, '-');
         XLSX.writeFile(wb, `Reporte_Eficacia_${dateStr}.xlsx`);
-    } catch (err) {
-        console.error("Error al generar Excel:", err);
-        alert("Hubo un error al generar el archivo Excel: " + err.message);
-    }
+    } catch (err) { alert("Error al generar Excel: " + err.message); }
 }
 
 document.addEventListener('DOMContentLoaded', initDashboard);
