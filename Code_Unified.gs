@@ -31,20 +31,25 @@ function doGet(e) {
 }
 
 /**
- * Función auxiliar para leer cualquier hoja por ID y devolver JSON
+ * Función auxiliar para leer cualquier hoja por ID y devolver JSON.
+ * Ahora limpia automáticamente los encabezados y omite filas vacías.
  */
 function getSheetDataAsJson(id) {
   const ss = SpreadsheetApp.openById(id);
   const sheet = ss.getSheets()[0];
   const data = sheet.getDataRange().getValues();
-  const headers = data[0];
+  
+  // Limpiar encabezados (quitar espacios al inicio/final)
+  const headers = data[0].map(h => String(h).trim());
   const rows = data.slice(1);
   
-  return rows.map(row => {
-    let obj = {};
-    headers.forEach((header, i) => {
-      obj[header] = row[i];
+  return rows
+    .filter(row => row.some(cell => cell !== "")) // Omitir filas vacías
+    .map(row => {
+      let obj = {};
+      headers.forEach((header, i) => {
+        obj[header] = row[i];
+      });
+      return obj;
     });
-    return obj;
-  });
 }

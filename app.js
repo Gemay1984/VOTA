@@ -108,7 +108,7 @@ function processData() {
     const leaderMapTmp = {};
     dataDiaD.forEach(row => {
         const lider = (row['usuario'] || 'DESCONOCIDO').toString().trim();
-        const puesto = (row['Puesto de Votacion '] || '').toString().trim();
+        const puesto = (row['Puesto de Votacion'] || row['Puesto de Votacion '] || '').toString().trim();
         const mesa = parseInt(row['Mesa']) || 0;
         if (!leaderMapTmp[lider]) leaderMapTmp[lider] = {};
         if (!leaderMapTmp[lider][puesto]) leaderMapTmp[lider][puesto] = {};
@@ -141,7 +141,8 @@ function processData() {
 
     const mesaLeaderIdx = {};
     dataDiaD.forEach(r => {
-        const key = `${r['Puesto de Votacion '].toString().trim()}|${parseInt(r['Mesa'])}`;
+        const p = (r['Puesto de Votacion'] || r['Puesto de Votacion '] || '').toString().trim();
+        const key = `${p}|${parseInt(r['Mesa'])}`;
         if (!mesaLeaderIdx[key]) mesaLeaderIdx[key] = new Set();
         mesaLeaderIdx[key].add(r['usuario'].toString().trim());
     });
