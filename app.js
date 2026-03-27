@@ -98,9 +98,9 @@ function processData() {
     e14ByMesa = {};
     dataE14.forEach(row => {
         const mesa = parseInt(row['Mesa']) || 0;
-        const zona = row['Zona'] || '';
-        const parts = zona.toString().replace(/\\/g, '/').split('/');
-        const folderWords = getKeyWords((parts[parts.length - 1] || '') + ' ' + (parts[parts.length-2] || ''));
+        const lugar = row['Lugar (Puesto de Votación)'] || row['Lugar'] || '';
+        const zona = row['Zona'] || row['Zona Carpeta'] || '';
+        const folderWords = getKeyWords(lugar + ' ' + zona);
         if (!e14ByMesa[mesa]) e14ByMesa[mesa] = [];
         e14ByMesa[mesa].push({ folderWords, row });
     });
