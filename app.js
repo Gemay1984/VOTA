@@ -180,11 +180,13 @@ function syncCandidateForms() {
         let isMatch = true;
         if (party === 'con') isMatch = opt.value.startsWith('Con_');
         else if (party === 'u') isMatch = opt.value.startsWith('U_');
+        else isMatch = true; // Show all if 'all' candidate
         
         opt.style.display = isMatch ? 'block' : 'none';
         if (isMatch && !firstMatch) firstMatch = opt.value;
     });
 
+    // Stricter: if party doesn't match current selection, force change
     if (party !== 'all' && !candS.value.toLowerCase().startsWith(party)) {
         candS.value = firstMatch;
     }
@@ -241,13 +243,23 @@ function getOff(e14, cid, incP) {
 }
 
 function renderDashboard() {
-    const selected = Array.from(document.querySelectorAll('.leader-checkbox:checked')).map(cb => cb.value);
+    let selected = Array.from(document.querySelectorAll('.leader-checkbox:checked')).map(cb => cb.value);
     const candF = document.getElementById('candidateFilter').value;
     const cid = document.getElementById('candidateSelect').value;
     const incP = document.getElementById('includePartyToggle').checked;
     const tb = document.getElementById('resultsTableBody');
     const statusContainer = document.getElementById('leaderStatusList');
-    document.getElementById('selectedCountText').innerText = selected.length ? (selected.length === 1 ? selected[0] : `${selected.length} seleccionados`) : "Selecciona líderes...";
+    
+    // AUTOMATIC MATCHING: If a candidate is selected, take ALL their leaders automatically
+    if (candF !== 'all') {
+        selected = rawData.leaderNames.filter(l => rawData.leaders[l].cand === candF);
+        // Visual feedback: update button text
+        document.getElementById('selectedCountText').innerHTML = `<b>Auto:</b> ${candF} (${selected.length} líd.)`;
+        document.getElementById('leaderSelectBtn').classList.add('border-blue-500', 'bg-blue-500/10');
+    } else {
+        document.getElementById('selectedCountText').innerText = selected.length ? (selected.length === 1 ? selected[0] : `${selected.length} seleccionados`) : "Selecciona líderes...";
+        document.getElementById('leaderSelectBtn').classList.remove('border-blue-500', 'bg-blue-500/10');
+    }
 
     // Si cambia el filtro de candidato, refrescamos la lista de líderes disponible (pero mantenemos seleccionados si coinciden)
     // Para simplificar, refrescamos la lista si es necesario.
