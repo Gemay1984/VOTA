@@ -201,11 +201,35 @@ function findE14Match(p, m) {
     const cs = e14ByMesa[parseInt(m)] || [];
     const pw = getKeyWords(p);
     let b = null, bs = 0;
+    
+    // First Pass: Keyword matching
     cs.forEach(c => {
-        let sc = 0; pw.forEach(w => { c.words.forEach(fw => { if (fw.includes(w) || w.includes(fw)) sc++; }); });
+        let sc = 0; 
+        pw.forEach(w => { 
+            c.words.forEach(fw => { 
+                // Exact word match or clear substring
+                if (fw === w || (fw.length > 3 && w.length > 3 && (fw.includes(w) || w.includes(fw)))) sc++; 
+            }); 
+        });
         if (sc > bs) { bs = sc; b = c; }
     });
-    return bs >= 1 ? b.row : null;
+    
+    if (bs >= 1) return b.row;
+
+    // Second Pass: Direct string containment ignoring spaces/symbols
+    let pRaw = String(p).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    if (pRaw.length < 4) return null; // Avoid false positives on tiny strings
+    
+    for (const c of cs) {
+        let cRaw = String(c.row['Lugar (Puesto de Votación)'] || c.row['Lugar'] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+        let zRaw = String(c.row['Zona'] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+        
+        if (cRaw.includes(pRaw) || pRaw.includes(cRaw) || zRaw.includes(pRaw) || pRaw.includes(zRaw)) {
+            return c.row;
+        }
+    }
+
+    return null;
 }
 
 function populateLeaders() {
@@ -413,7 +437,7 @@ function downloadExcel() {
             if (!ws[address]) continue;
             ws[address].s = {
                 font: { bold: true, color: { rgb: "FFFFFF" } },
-                fill: { fgColor: { rgb: "1E293B" } }, // Dark Slate header
+                fill: { patternType: "solid", fgColor: { rgb: "1E293B" } }, // Dark Slate header
                 alignment: { horizontal: "center" }
             };
         }
@@ -441,7 +465,7 @@ function downloadExcel() {
                 const address = XLSX.utils.encode_cell({c: C, r: R});
                 if (!ws[address]) continue;
                 ws[address].s = {
-                    fill: { fgColor: { rgb: bgColor } },
+                    fill: { patternType: "solid", fgColor: { rgb: bgColor } },
                     font: { color: { rgb: fontColor } }
                 };
             }
