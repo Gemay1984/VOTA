@@ -91,7 +91,7 @@ function setupGlobalListeners() {
     document.getElementById('btnAll').onclick = () => { document.querySelectorAll('.leader-checkbox').forEach(cb => cb.checked = true); renderDashboard(); };
     document.getElementById('btnClear').onclick = () => { document.querySelectorAll('.leader-checkbox').forEach(cb => cb.checked = false); renderDashboard(); };
     
-    ['candidateSelect', 'includePartyToggle', 'filterStatus'].forEach(id => { document.getElementById(id).onchange = renderDashboard; });
+    ['candidateSelect', 'includePartyToggle', 'filterStatus', 'candidateFilter'].forEach(id => { document.getElementById(id).onchange = renderDashboard; });
     ['filterPuesto', 'filterMesa'].forEach(id => { document.getElementById(id).oninput = renderDashboard; });
     document.getElementById('btnDownloadExcel').onclick = downloadExcel;
 }
@@ -132,21 +132,38 @@ function processData() {
         if (!m) return;
         if (!lMap[lid]) lMap[lid] = {};
         if (!lMap[lid][p]) lMap[lid][p] = {};
-        if (!lMap[lid][p][m]) lMap[lid][p][m] = { voters: [] };
-        lMap[lid][p][m].voters.push({ n: row['Nombres y Apellidos'] });
+        const s_info = String(row['S'] || '').trim();
+        const cand = String(row['candidato'] || 'N/A').trim();
+        if (!lMap[lid][p][m]) lMap[lid][p][m] = { voters: [], cand: cand };
+        lMap[lid][p][m].voters.push({ n: row['Nombres y Apellidos'], s: s_info });
     });
 
     const results = {};
+    const candSet = new Set();
     for (const [lid, puestos] of Object.entries(lMap)) {
-        results[lid] = { mesas: [] };
+        results[lid] = { mesas: [], cand: 'N/A' };
         for (const [p, ms] of Object.entries(puestos)) {
             for (const [m, d] of Object.entries(ms)) {
                 results[lid].mesas.push({ p, m, voters: d.voters, proyectados: d.voters.length, e14: findE14Match(p, m) });
+                if (d.cand && d.cand !== 'N/A') { results[lid].cand = d.cand; candSet.add(d.cand); }
             }
         }
     }
-    rawData = { leaders: results, leaderNames: Object.keys(results).sort() };
+    rawData = { leaders: results, leaderNames: Object.keys(results).sort(), candidates: Array.from(candSet).sort() };
+    populateCandidateFilter();
     populateLeaders();
+}
+
+function populateCandidateFilter() {
+    const sel = document.getElementById('candidateFilter');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="all">Todos los Candidatos</option>';
+    rawData.candidates.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.innerText = c;
+        sel.appendChild(opt);
+    });
+    if (cur && rawData.candidates.includes(cur)) sel.value = cur;
 }
 
 function getKeyWords(str) {
@@ -168,8 +185,12 @@ function findE14Match(p, m) {
 
 function populateLeaders() {
     const list = document.getElementById('leaderList');
+    const candFilter = document.getElementById('candidateFilter').value;
     list.innerHTML = '';
     rawData.leaderNames.forEach(l => {
+        const lData = rawData.leaders[l];
+        if (candFilter !== 'all' && lData.cand !== candFilter) return;
+        
         const div = document.createElement('div');
         div.className = 'checkbox-item px-4 py-2 flex items-center gap-3 cursor-pointer hover:bg-slate-700/20 border-b border-slate-700/30';
         div.innerHTML = `<input type="checkbox" value="${l}" class="leader-checkbox"><span class="text-sm text-slate-300 pointer-events-none">${l}</span>`;
@@ -178,7 +199,6 @@ function populateLeaders() {
         div.onclick = (e) => { if (e.target !== cb) { cb.checked = !cb.checked; renderDashboard(); } };
         list.appendChild(div);
     });
-    renderDashboard();
 }
 
 function filterLeaders() {
@@ -198,13 +218,19 @@ function getOff(e14, cid, incP) {
 
 function renderDashboard() {
     const selected = Array.from(document.querySelectorAll('.leader-checkbox:checked')).map(cb => cb.value);
+    const candF = document.getElementById('candidateFilter').value;
     const cid = document.getElementById('candidateSelect').value;
     const incP = document.getElementById('includePartyToggle').checked;
     const tb = document.getElementById('resultsTableBody');
     const statusContainer = document.getElementById('leaderStatusList');
     document.getElementById('selectedCountText').innerText = selected.length ? (selected.length === 1 ? selected[0] : `${selected.length} seleccionados`) : "Selecciona líderes...";
 
-    if (!dataE14 || !dataDiaD) return;
+    // Si cambia el filtro de candidato, refrescamos la lista de líderes disponible (pero mantenemos seleccionados si coinciden)
+    // Para simplificar, refrescamos la lista si es necesario.
+    // Optimization: only refresh if filter changed.
+    if (this && this.id === 'candidateFilter') {
+        populateLeaders();
+    }
 
     let totalGlobalE14 = 0;
     dataE14.forEach(row => { totalGlobalE14 += getOff(row, cid, incP) || 0; });
@@ -282,9 +308,10 @@ function renderDashboard() {
         const sh = m.lids.length > 1;
         const shH = sh ? m.lids.map(l => `<span class="bg-blue-900/30 text-blue-300 text-[8px] px-1 rounded">👥 ${l}</span>`).join(' ') : '—';
         if (sh) sc++;
-        const vH = m.vots.map(v => `<div class="text-[9px] text-slate-400 border-b border-white/5">${v.n}</div>`).join('');
+        const confH = m.vots.some(v => v.s && v.s !== '') ? '<span class="text-emerald-400 font-bold">✅ SI</span>' : '<span class="text-slate-500">NO</span>';
+        const vH = m.vots.map(v => `<div class="text-[9px] text-slate-400 border-b border-white/5 flex justify-between"><span>${v.n}</span><span>${v.s?'✅':''}</span></div>`).join('');
         
-        rows += `<tr class="border-b border-white/5 hover:bg-white/5"><td class="py-3 px-4 text-[11px] text-slate-300">${m.p}</td><td class="py-3 px-2 text-center font-bold text-white">${m.m}</td><td class="py-3 px-3"><div class="max-h-16 overflow-y-auto">${vH}</div></td><td class="py-3 px-3 text-center bg-white/5"><div class="text-lg font-bold text-blue-400">${off!==null?eff:'—'}</div><div class="text-[8px] text-slate-500">Goal: ${m.mergedM} | Off: ${off||0}</div></td><td class="py-3 px-3 text-center"><span class="px-2 py-0.5 text-[8px] font-bold border rounded ${bc}">${it}</span><div class="text-[8px] text-slate-500 mt-0.5">${el}</div></td><td class="py-3 px-2">${shH}</td></tr>`;
+        rows += `<tr class="border-b border-white/5 hover:bg-white/5"><td class="py-3 px-4 text-[11px] text-slate-300">${m.p}</td><td class="py-3 px-2 text-center font-bold text-white">${m.m}</td><td class="py-3 px-3"><div class="max-h-24 overflow-y-auto">${vH}</div></td><td class="py-3 px-3 text-center bg-white/5"><div class="text-lg font-bold text-blue-400">${off!==null?eff:'—'}</div><div class="text-[8px] text-slate-500">Goal: ${m.mergedM} | Off: ${off||0}</div></td><td class="py-3 px-3 text-center"><span class="px-2 py-0.5 text-[8px] font-bold border rounded ${bc}">${it}</span><div class="text-[8px] text-slate-500 mt-0.5">${el}</div></td><td class="py-3 px-2 text-center">${confH}</td><td class="py-3 px-2">${shH}</td></tr>`;
     });
 
     tb.innerHTML = rows;
@@ -307,11 +334,21 @@ function downloadExcel() {
         const d = currentFilteredMesas.map(m => {
             const off = getOff(m.e14, cid, incP);
             const eff = off === null ? 0 : Math.min(m.mergedM, off);
-            return { "Puesto": m.p, "Mesa": m.m, "Goal": m.mergedM, "Real (Efficacy)": eff, "Official E14": off||0, "Leaders": m.lids.join(", ") };
+            const voters = m.vots.map(v => `${v.n} (${v.s || 'No Conf.'})`).join(", ");
+            return { 
+                "Puesto": m.p, 
+                "Mesa": m.m, 
+                "Meta": m.mergedM, 
+                "Real (Eficacia)": eff, 
+                "Oficial E14": off||0, 
+                "Confirmación": m.vots.some(v => v.s) ? "SÍ" : "NO",
+                "Referidos": voters,
+                "Líderes": m.lids.join(", ") 
+            };
         });
         const ws = XLSX.utils.json_to_sheet(d), wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Report");
-        XLSX.writeFile(wb, `Report_${new Date().toLocaleDateString()}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+        XLSX.writeFile(wb, `Reporte_Electoral_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (e) { console.error(e); }
 }
 
