@@ -402,7 +402,52 @@ function downloadExcel() {
                 "Líderes": m.lids.join(", ") 
             };
         });
-        const ws = XLSX.utils.json_to_sheet(d), wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(d);
+        
+        // Add styles using xlsx-js-style
+        const range = XLSX.utils.decode_range(ws['!ref']);
+        
+        // Header styling
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            const address = XLSX.utils.encode_cell({c: C, r: 0});
+            if (!ws[address]) continue;
+            ws[address].s = {
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "1E293B" } }, // Dark Slate header
+                alignment: { horizontal: "center" }
+            };
+        }
+
+        // Row styling based on status
+        for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+            const rowData = d[R - 1];
+            if (!rowData) continue;
+            
+            let bgColor = "FFFFFF";
+            let fontColor = "000000";
+
+            if (rowData["Confirmación"] === "SÍ") {
+                bgColor = "C6EFCE"; // Verde: Confirmado
+                fontColor = "006100";
+            } else if (rowData["Oficial E14"] > 0) {
+                bgColor = "FFEB9C"; // Naranja: Con coincidencia
+                fontColor = "9C6500";
+            } else {
+                bgColor = "FFC7CE"; // Rojo: No voto (0 E14 y no confirmado)
+                fontColor = "9C0006";
+            }
+
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const address = XLSX.utils.encode_cell({c: C, r: R});
+                if (!ws[address]) continue;
+                ws[address].s = {
+                    fill: { fgColor: { rgb: bgColor } },
+                    font: { color: { rgb: fontColor } }
+                };
+            }
+        }
+
+        const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Reporte");
         XLSX.writeFile(wb, `Reporte_Electoral_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (e) { console.error(e); }
