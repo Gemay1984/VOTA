@@ -221,6 +221,12 @@ function populateLeaders() {
         div.className = 'checkbox-item px-4 py-2 flex items-center gap-3 cursor-pointer hover:bg-slate-700/20 border-b border-slate-700/30';
         div.innerHTML = `<input type="checkbox" value="${l}" class="leader-checkbox"><span class="text-sm text-slate-300 pointer-events-none">${l}</span>`;
         const cb = div.querySelector('input');
+        
+        // Auto-check all leaders for the selected candidate by default
+        if (candFilter !== 'all') {
+            cb.checked = true;
+        }
+
         cb.onchange = renderDashboard;
         div.onclick = (e) => { if (e.target !== cb) { cb.checked = !cb.checked; renderDashboard(); } };
         list.appendChild(div);
@@ -243,18 +249,25 @@ function getOff(e14, cid, incP) {
 }
 
 function renderDashboard() {
-    let selected = Array.from(document.querySelectorAll('.leader-checkbox:checked')).map(cb => cb.value);
     const candF = document.getElementById('candidateFilter').value;
     const cid = document.getElementById('candidateSelect').value;
     const incP = document.getElementById('includePartyToggle').checked;
     const tb = document.getElementById('resultsTableBody');
     const statusContainer = document.getElementById('leaderStatusList');
     
-    // AUTOMATIC MATCHING: If a candidate is selected, take ALL their leaders automatically
+    // Si cambia el filtro de candidato, refrescamos la lista de líderes disponible
+    if (this && this.id === 'candidateFilter') {
+        populateLeaders();
+        syncCandidateForms();
+        // Return here, because populateLeaders doesn't currently trigger an immediate render.
+        // Actually, we should just let the execution continue so it renders with the new checkboxes.
+    }
+
+    const selected = Array.from(document.querySelectorAll('.leader-checkbox:checked')).map(cb => cb.value);
+    
     if (candF !== 'all') {
-        selected = rawData.leaderNames.filter(l => rawData.leaders[l].cand === candF);
-        // Visual feedback: update button text
-        document.getElementById('selectedCountText').innerHTML = `<b>Auto:</b> ${candF} (${selected.length} líd.)`;
+        const totalAvail = rawData.leaderNames.filter(l => rawData.leaders[l].cand === candF).length;
+        document.getElementById('selectedCountText').innerHTML = `<b>${candF}</b> (${selected.length}/${totalAvail} líd.)`;
         document.getElementById('leaderSelectBtn').classList.add('border-blue-500', 'bg-blue-500/10');
     } else {
         document.getElementById('selectedCountText').innerText = selected.length ? (selected.length === 1 ? selected[0] : `${selected.length} seleccionados`) : "Selecciona líderes...";
@@ -262,13 +275,6 @@ function renderDashboard() {
     }
 
     if (!dataE14 || !dataDiaD) return;
-
-    // Si cambia el filtro de candidato, refrescamos la lista de líderes disponible (pero mantenemos seleccionados si coinciden)
-    // Para simplificar, refrescamos la lista si es necesario.
-    if (this && this.id === 'candidateFilter') {
-        populateLeaders();
-        syncCandidateForms();
-    }
 
     let totalGlobalE14 = 0;
     dataE14.forEach(row => { totalGlobalE14 += getOff(row, cid, incP) || 0; });
