@@ -166,6 +166,30 @@ function populateCandidateFilter() {
     if (cur && rawData.candidates.includes(cur)) sel.value = cur;
 }
 
+function syncCandidateForms() {
+    const candF = document.getElementById('candidateFilter').value;
+    const candS = document.getElementById('candidateSelect');
+    const options = Array.from(candS.options);
+    
+    let party = 'all';
+    if (candF.toLowerCase().includes('conservador')) party = 'con';
+    else if (candF.toLowerCase().includes(' de la u') || candF.toLowerCase().includes('(u)')) party = 'u';
+
+    let firstMatch = null;
+    options.forEach(opt => {
+        let isMatch = true;
+        if (party === 'con') isMatch = opt.value.startsWith('Con_');
+        else if (party === 'u') isMatch = opt.value.startsWith('U_');
+        
+        opt.style.display = isMatch ? 'block' : 'none';
+        if (isMatch && !firstMatch) firstMatch = opt.value;
+    });
+
+    if (party !== 'all' && !candS.value.toLowerCase().startsWith(party)) {
+        candS.value = firstMatch;
+    }
+}
+
 function getKeyWords(str) {
     if (!str) return [];
     let s = String(str).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -227,9 +251,9 @@ function renderDashboard() {
 
     // Si cambia el filtro de candidato, refrescamos la lista de líderes disponible (pero mantenemos seleccionados si coinciden)
     // Para simplificar, refrescamos la lista si es necesario.
-    // Optimization: only refresh if filter changed.
     if (this && this.id === 'candidateFilter') {
         populateLeaders();
+        syncCandidateForms();
     }
 
     let totalGlobalE14 = 0;
