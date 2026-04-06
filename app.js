@@ -139,16 +139,21 @@ function processData() {
 
     const results = {};
     const candSet = new Set();
+    const gMesas = {};
+
     for (const [lid, puestos] of Object.entries(lMap)) {
         results[lid] = { mesas: [], cand: 'N/A' };
         for (const [p, ms] of Object.entries(puestos)) {
             for (const [m, d] of Object.entries(ms)) {
                 results[lid].mesas.push({ p, m, voters: d.voters, proyectados: d.voters.length, e14: findE14Match(p, m) });
                 if (d.cand && d.cand !== 'N/A') { results[lid].cand = d.cand; candSet.add(d.cand); }
+                const gk = `${p}|${m}`;
+                if (!gMesas[gk]) gMesas[gk] = [];
+                gMesas[gk].push(lid);
             }
         }
     }
-    rawData = { leaders: results, leaderNames: Object.keys(results).sort(), candidates: Array.from(candSet).sort() };
+    rawData = { leaders: results, leaderNames: Object.keys(results).sort(), candidates: Array.from(candSet).sort(), globalMesas: gMesas };
     populateCandidateFilter();
     populateLeaders();
 }
@@ -386,8 +391,14 @@ function renderDashboard() {
         else if (off > 0) { bc='text-amber-400'; it='🟡 Partial'; el=`${((off/m.mergedM)*100).toFixed(0)}%`; y++; }
         else { bc='text-red-400'; it='🔴 Zero Votes'; el='0%'; r++; }
         
-        const shH = m.lids.map(l => `<span class="bg-blue-900/30 text-blue-300 text-[8px] px-1 rounded block mb-0.5">👤 ${l}</span>`).join(' ');
-        if (m.lids.length > 1) sc++;
+        const globalLids = rawData.globalMesas[`${m.p}|${m.m}`] || [];
+        const shH = globalLids.map(l => {
+            const isSelected = m.lids.includes(l);
+            if (isSelected) return `<span class="bg-blue-900/50 border border-blue-500/30 text-blue-300 text-[10px] font-bold px-1.5 py-0.5 rounded block mb-1">👤 ${l}</span>`;
+            return `<span class="bg-slate-800/80 border border-slate-700 text-slate-400 text-[9px] px-1.5 py-0.5 rounded block mb-1">👀 ${l} (Comparte)</span>`;
+        }).join('');
+        
+        if (globalLids.length > 1) sc++;
         const confH = m.vots.some(v => v.s && v.s !== '') ? '<span class="text-emerald-400 font-bold">✅ SI</span>' : '<span class="text-slate-500">NO</span>';
         const vH = m.vots.map(v => `<div class="text-[9px] text-slate-400 border-b border-white/5 flex justify-between"><span>${v.n}</span><span>${v.s?'✅':''}</span></div>`).join('');
         
