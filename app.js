@@ -261,6 +261,8 @@ function renderDashboard() {
         document.getElementById('leaderSelectBtn').classList.remove('border-blue-500', 'bg-blue-500/10');
     }
 
+    if (!dataE14 || !dataDiaD) return;
+
     // Si cambia el filtro de candidato, refrescamos la lista de líderes disponible (pero mantenemos seleccionados si coinciden)
     // Para simplificar, refrescamos la lista si es necesario.
     if (this && this.id === 'candidateFilter') {
@@ -274,7 +276,7 @@ function renderDashboard() {
 
     let tM=0, tR=0, g=0, y=0, r=0, gr=0, sc=0, mC=0;
     if (!selected.length) {
-        tb.innerHTML = '<tr><td colspan="6" class="py-12 text-center text-slate-500 italic text-sm">Sin selección.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="7" class="py-12 text-center text-slate-500 italic text-sm">Sin selección.</td></tr>';
         statusContainer.innerHTML = '';
         Object.values(rawData.leaders).forEach(l => {
             l.mesas.forEach(m => {
@@ -341,9 +343,8 @@ function renderDashboard() {
         else if (off > 0) { bc='text-amber-400'; it='🟡 Partial'; el=`${((off/m.mergedM)*100).toFixed(0)}%`; y++; }
         else { bc='text-red-400'; it='🔴 Zero Votes'; el='0%'; r++; }
         
-        const sh = m.lids.length > 1;
-        const shH = sh ? m.lids.map(l => `<span class="bg-blue-900/30 text-blue-300 text-[8px] px-1 rounded">👥 ${l}</span>`).join(' ') : '—';
-        if (sh) sc++;
+        const shH = m.lids.map(l => `<span class="bg-blue-900/30 text-blue-300 text-[8px] px-1 rounded block mb-0.5">👤 ${l}</span>`).join(' ');
+        if (m.lids.length > 1) sc++;
         const confH = m.vots.some(v => v.s && v.s !== '') ? '<span class="text-emerald-400 font-bold">✅ SI</span>' : '<span class="text-slate-500">NO</span>';
         const vH = m.vots.map(v => `<div class="text-[9px] text-slate-400 border-b border-white/5 flex justify-between"><span>${v.n}</span><span>${v.s?'✅':''}</span></div>`).join('');
         
