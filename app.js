@@ -145,11 +145,13 @@ function processData() {
         results[lid] = { mesas: [], cand: 'N/A' };
         for (const [p, ms] of Object.entries(puestos)) {
             for (const [m, d] of Object.entries(ms)) {
-                results[lid].mesas.push({ p, m, voters: d.voters, proyectados: d.voters.length, e14: findE14Match(p, m) });
+                const e14Row = findE14Match(p, m);
+                results[lid].mesas.push({ p, m, voters: d.voters, proyectados: d.voters.length, e14: e14Row });
                 if (d.cand && d.cand !== 'N/A') { results[lid].cand = d.cand; candSet.add(d.cand); }
-                const gk = `${p}|${m}`;
-                if (!gMesas[gk]) gMesas[gk] = [];
-                gMesas[gk].push(lid);
+                
+                const standardKey = e14Row ? `E14|${e14Row['Zona']}|${e14Row['Lugar (Puesto de Votación)'] || e14Row['Lugar']}|${m}` : `RAW|${p}|${m}`;
+                if (!gMesas[standardKey]) gMesas[standardKey] = [];
+                if (!gMesas[standardKey].includes(lid)) gMesas[standardKey].push(lid);
             }
         }
     }
@@ -391,7 +393,8 @@ function renderDashboard() {
         else if (off > 0) { bc='text-amber-400'; it='🟡 Partial'; el=`${((off/m.mergedM)*100).toFixed(0)}%`; y++; }
         else { bc='text-red-400'; it='🔴 Zero Votes'; el='0%'; r++; }
         
-        const globalLids = rawData.globalMesas[`${m.p}|${m.m}`] || [];
+        const standardKey = m.e14 ? `E14|${m.e14['Zona']}|${m.e14['Lugar (Puesto de Votación)'] || m.e14['Lugar']}|${m.m}` : `RAW|${m.p}|${m.m}`;
+        const globalLids = rawData.globalMesas[standardKey] || [];
         const shH = globalLids.map(l => {
             const isSelected = m.lids.includes(l);
             if (isSelected) return `<span class="bg-blue-900/50 border border-blue-500/30 text-blue-300 text-[10px] font-bold px-1.5 py-0.5 rounded block mb-1">👤 ${l}</span>`;
