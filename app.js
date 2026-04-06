@@ -303,22 +303,27 @@ function renderDashboard() {
 
     let selected = [];
     if (selectedLeader === 'all') {
-        if (candF !== 'all') {
-            selected = rawData.leaderNames.filter(l => rawData.leaders[l].cand === candF);
-            document.getElementById('selectedCountText').innerHTML = `<b>${candF}</b> (${selected.length} líd.)`;
-            document.getElementById('leaderSelectBtn').classList.add('border-blue-500', 'bg-blue-500/10');
-        } else {
-            selected = rawData.leaderNames;
-            document.getElementById('selectedCountText').innerText = "Todos los Líderes";
-            document.getElementById('leaderSelectBtn').classList.remove('border-blue-500', 'bg-blue-500/10');
-        }
-    } else {
-        selected = [selectedLeader];
-        document.getElementById('selectedCountText').innerHTML = `<b>Líder:</b> <span class="truncate ml-1 max-w-[150px] inline-block align-bottom">${selectedLeader}</span>`;
+    if (candF !== 'all') {
+        selected = rawData.leaderNames.filter(l => rawData.leaders[l].cand === candF);
+        document.getElementById('selectedCountText').innerHTML = `<b>${candF}</b> (${selected.length} líd.)`;
         document.getElementById('leaderSelectBtn').classList.add('border-blue-500', 'bg-blue-500/10');
+    } else {
+        selected = rawData.leaderNames;
+        document.getElementById('selectedCountText').innerText = "Todos los Líderes";
+        document.getElementById('leaderSelectBtn').classList.remove('border-blue-500', 'bg-blue-500/10');
     }
+} else {
+    selected = [selectedLeader];
+    document.getElementById('selectedCountText').innerHTML = `<b>Líder:</b> <span class="truncate ml-1 max-w-[150px] inline-block align-bottom">${selectedLeader}</span>`;
+    document.getElementById('leaderSelectBtn').classList.add('border-blue-500', 'bg-blue-500/10');
+}
 
-    if (!dataE14 || !dataDiaD) return;
+let targetCand = candF;
+if (selectedLeader !== 'all' && rawData.leaders[selectedLeader]) {
+    targetCand = rawData.leaders[selectedLeader].cand;
+}
+
+if (!dataE14 || !dataDiaD) return;
 
     let totalGlobalE14 = 0;
     dataE14.forEach(row => { totalGlobalE14 += getOff(row, cid, incP) || 0; });
@@ -395,13 +400,20 @@ function renderDashboard() {
         
         const standardKey = m.e14 ? `E14|${m.e14['Zona']}|${m.e14['Lugar (Puesto de Votación)'] || m.e14['Lugar']}|${m.m}` : `RAW|${m.p}|${m.m}`;
         const globalLids = rawData.globalMesas[standardKey] || [];
-        const shH = globalLids.map(l => {
+        
+        // Filter shared leaders: only show those from the SAME candidate
+        const filteredLids = globalLids.filter(l => {
+            if (targetCand === 'all') return true;
+            return rawData.leaders[l] && rawData.leaders[l].cand === targetCand;
+        });
+
+        const shH = filteredLids.map(l => {
             const isSelected = m.lids.includes(l);
             if (isSelected) return `<span class="bg-blue-900/50 border border-blue-500/30 text-blue-300 text-[10px] font-bold px-1.5 py-0.5 rounded block mb-1">👤 ${l}</span>`;
             return `<span class="bg-slate-800/80 border border-slate-700 text-slate-400 text-[9px] px-1.5 py-0.5 rounded block mb-1">👀 ${l} (Comparte)</span>`;
         }).join('');
         
-        if (globalLids.length > 1) sc++;
+        if (filteredLids.length > 1) sc++;
         const confH = m.vots.some(v => v.s && v.s !== '') ? '<span class="text-emerald-400 font-bold">✅ SI</span>' : '<span class="text-slate-500">NO</span>';
         const vH = m.vots.map(v => `<div class="text-[9px] text-slate-400 border-b border-white/5 flex justify-between"><span>${v.n}</span><span>${v.s?'✅':''}</span></div>`).join('');
         
