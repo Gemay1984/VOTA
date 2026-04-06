@@ -5,6 +5,7 @@ let dataDiaD = null;
 let dataE14 = null;
 let e14ByMesa = {};
 let currentFilteredMesas = [];
+let selectedLeader = 'all';
 
 const STOP_WORDS = new Set(['de', 'del', 'la', 'las', 'los', 'el', 'en', 'ie', 'col', 'colegio', 'institucion', 'educativa', 'educativo', 'instituto', 'escuela', 'sede', 'puesto', 'and', 'the', 'num', 'no', 'mesa', 'urna', 'sd', 'principal', 'nuestra', 'senora', 'juan', 'maria', 'jose', 'santa', 'san', 'santander', 'normal', 'superior']);
 
@@ -88,8 +89,6 @@ function setupGlobalListeners() {
     btn.onclick = (e) => { e.stopPropagation(); dropdown.classList.toggle('show'); };
     document.onclick = (e) => { if (!dropdown.contains(e.target) && e.target !== btn) dropdown.classList.remove('show'); };
     document.getElementById('leaderSearch').oninput = filterLeaders;
-    document.getElementById('btnAll').onclick = () => { document.querySelectorAll('.leader-checkbox').forEach(cb => cb.checked = true); renderDashboard(); };
-    document.getElementById('btnClear').onclick = () => { document.querySelectorAll('.leader-checkbox').forEach(cb => cb.checked = false); renderDashboard(); };
     
     ['candidateSelect', 'includePartyToggle', 'filterStatus', 'candidateFilter'].forEach(id => { document.getElementById(id).onchange = renderDashboard; });
     ['filterPuesto', 'filterMesa'].forEach(id => { document.getElementById(id).oninput = renderDashboard; });
@@ -213,29 +212,38 @@ function populateLeaders() {
     const list = document.getElementById('leaderList');
     const candFilter = document.getElementById('candidateFilter').value;
     list.innerHTML = '';
+
+    const elTodos = document.createElement('div');
+    elTodos.className = 'leader-option px-4 py-2 flex items-center cursor-pointer hover:bg-slate-700/20 border-b border-slate-700/30 text-sm font-bold text-blue-400';
+    elTodos.innerText = 'Todos los Líderes';
+    elTodos.onclick = () => { selectLeader('all'); };
+    list.appendChild(elTodos);
+
     rawData.leaderNames.forEach(l => {
         const lData = rawData.leaders[l];
         if (candFilter !== 'all' && lData.cand !== candFilter) return;
         
         const div = document.createElement('div');
-        div.className = 'checkbox-item px-4 py-2 flex items-center gap-3 cursor-pointer hover:bg-slate-700/20 border-b border-slate-700/30';
-        div.innerHTML = `<input type="checkbox" value="${l}" class="leader-checkbox"><span class="text-sm text-slate-300 pointer-events-none">${l}</span>`;
-        const cb = div.querySelector('input');
-        
-        // Auto-check all leaders for the selected candidate by default
-        if (candFilter !== 'all') {
-            cb.checked = true;
-        }
-
-        cb.onchange = renderDashboard;
-        div.onclick = (e) => { if (e.target !== cb) { cb.checked = !cb.checked; renderDashboard(); } };
+        div.className = 'leader-option px-4 py-2 flex items-center cursor-pointer hover:bg-slate-700/20 border-b border-slate-700/30 text-sm text-slate-300';
+        div.innerText = l;
+        div.onclick = () => { selectLeader(l); };
         list.appendChild(div);
     });
 }
 
+function selectLeader(l) {
+    selectedLeader = l;
+    document.getElementById('leaderDropdown').classList.remove('show');
+    renderDashboard();
+}
+
 function filterLeaders() {
     const q = document.getElementById('leaderSearch').value.toLowerCase();
-    document.querySelectorAll('.checkbox-item').forEach(it => { it.style.display = it.innerText.toLowerCase().includes(q) ? 'flex' : 'none'; });
+    document.querySelectorAll('.leader-option').forEach((it, index) => { 
+        if (index === 0 && q !== '') { it.style.display = 'none'; return; }
+        if (index === 0 && q === '') { it.style.display = 'flex'; return; }
+        it.style.display = it.innerText.toLowerCase().includes(q) ? 'flex' : 'none'; 
+    });
 }
 
 function getOff(e14, cid, incP) {
@@ -257,21 +265,26 @@ function renderDashboard() {
     
     // Si cambia el filtro de candidato, refrescamos la lista de líderes disponible
     if (this && this.id === 'candidateFilter') {
+        selectedLeader = 'all'; // Reset leader selection when candidate changes
         populateLeaders();
         syncCandidateForms();
-        // Return here, because populateLeaders doesn't currently trigger an immediate render.
-        // Actually, we should just let the execution continue so it renders with the new checkboxes.
     }
 
-    const selected = Array.from(document.querySelectorAll('.leader-checkbox:checked')).map(cb => cb.value);
-    
-    if (candF !== 'all') {
-        const totalAvail = rawData.leaderNames.filter(l => rawData.leaders[l].cand === candF).length;
-        document.getElementById('selectedCountText').innerHTML = `<b>${candF}</b> (${selected.length}/${totalAvail} líd.)`;
-        document.getElementById('leaderSelectBtn').classList.add('border-blue-500', 'bg-blue-500/10');
+    let selected = [];
+    if (selectedLeader === 'all') {
+        if (candF !== 'all') {
+            selected = rawData.leaderNames.filter(l => rawData.leaders[l].cand === candF);
+            document.getElementById('selectedCountText').innerHTML = `<b>${candF}</b> (${selected.length} líd.)`;
+            document.getElementById('leaderSelectBtn').classList.add('border-blue-500', 'bg-blue-500/10');
+        } else {
+            selected = rawData.leaderNames;
+            document.getElementById('selectedCountText').innerText = "Todos los Líderes";
+            document.getElementById('leaderSelectBtn').classList.remove('border-blue-500', 'bg-blue-500/10');
+        }
     } else {
-        document.getElementById('selectedCountText').innerText = selected.length ? (selected.length === 1 ? selected[0] : `${selected.length} seleccionados`) : "Selecciona líderes...";
-        document.getElementById('leaderSelectBtn').classList.remove('border-blue-500', 'bg-blue-500/10');
+        selected = [selectedLeader];
+        document.getElementById('selectedCountText').innerHTML = `<b>Líder:</b> <span class="truncate ml-1 max-w-[150px] inline-block align-bottom">${selectedLeader}</span>`;
+        document.getElementById('leaderSelectBtn').classList.add('border-blue-500', 'bg-blue-500/10');
     }
 
     if (!dataE14 || !dataDiaD) return;
