@@ -460,8 +460,11 @@ function applyExcelStyles(ws, d) {
         if (rowData["Confirmación"] === "SÍ") {
             bgColor = "C6EFCE"; // Verde: Confirmado
             fontColor = "006100";
+        } else if (rowData["Real (Eficacia)"] === 0 || rowData["Real (Eficacia)"] === '0') {
+            bgColor = "E9D5FF"; // Morado: Real = 0, no aportó votos
+            fontColor = "6B21A8";
         } else if (rowData["Oficial E14"] > 0) {
-            bgColor = "FFEB9C"; // Naranja: Con coincidencia
+            bgColor = "FFEB9C"; // Naranja: Con coincidencia parcial
             fontColor = "9C6500";
         } else {
             bgColor = "FFC7CE"; // Rojo: No voto (0 E14 y no confirmado)
