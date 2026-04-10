@@ -434,49 +434,87 @@ if (!dataE14 || !dataDiaD) return;
     updateDonutChart(g, y, r, gr);
 }
 
-function applyExcelStyles(ws, d) {
-    // Add styles using xlsx-js-style
+function applyExcelStyles(ws, d, leaderName) {
     const range = XLSX.utils.decode_range(ws['!ref']);
-    
-    // Header styling
+
+    // --- Column widths ---
+    ws['!cols'] = [
+        { wch: 38 },  // Puesto
+        { wch: 7  },  // Mesa
+        { wch: 7  },  // Meta
+        { wch: 14 },  // Real (Eficacia)
+        { wch: 12 },  // Oficial E14
+        { wch: 13 },  // Confirmación
+        { wch: 50 },  // Referidos
+        { wch: 50 },  // Líderes (Comparten)
+    ];
+
+    // --- Freeze header row ---
+    ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
+
+    // --- Header row styling ---
     for (let C = range.s.c; C <= range.e.c; ++C) {
-        const address = XLSX.utils.encode_cell({c: C, r: 0});
-        if (!ws[address]) continue;
-        ws[address].s = {
-            font: { bold: true, color: { rgb: "FFFFFF" } },
-            fill: { patternType: "solid", fgColor: { rgb: "1E293B" } }, // Dark Slate header
-            alignment: { horizontal: "center" }
+        const addr = XLSX.utils.encode_cell({ c: C, r: 0 });
+        if (!ws[addr]) continue;
+        ws[addr].s = {
+            font: { bold: true, sz: 11, color: { rgb: "FFFFFF" }, name: "Calibri" },
+            fill: { patternType: "solid", fgColor: { rgb: "1E3A5F" } },
+            alignment: { horizontal: "center", vertical: "center", wrapText: false },
+            border: {
+                top:    { style: "medium", color: { rgb: "FFFFFF" } },
+                bottom: { style: "medium", color: { rgb: "FFFFFF" } },
+                left:   { style: "thin",   color: { rgb: "2D5F8A" } },
+                right:  { style: "thin",   color: { rgb: "2D5F8A" } },
+            }
         };
     }
 
-    // Row styling based on status
+    // --- Data rows ---
     for (let R = range.s.r + 1; R <= range.e.r; ++R) {
         const rowData = d[R - 1];
         if (!rowData) continue;
-        
+
         let bgColor = "FFFFFF";
-        let fontColor = "000000";
+        let fontColor = "1E293B";
+        let bold = false;
 
         if (rowData["Confirmación"] === "SÍ") {
-            bgColor = "C6EFCE"; // Verde: Confirmado
-            fontColor = "006100";
+            bgColor = "C6EFCE";  // Verde: Confirmado
+            fontColor = "1A5C2A";
+            bold = true;
         } else if (rowData["Real (Eficacia)"] === 0 || rowData["Real (Eficacia)"] === '0') {
-            bgColor = "E9D5FF"; // Morado: Real = 0, no aportó votos
-            fontColor = "6B21A8";
+            bgColor = "EDE9FE";  // Morado claro: Real = 0
+            fontColor = "5B21B6";
         } else if (rowData["Oficial E14"] > 0) {
-            bgColor = "FFEB9C"; // Naranja: Con coincidencia parcial
-            fontColor = "9C6500";
+            bgColor = "FEF9C3";  // Amarillo suave: Con votos parciales
+            fontColor = "854D0E";
         } else {
-            bgColor = "FFC7CE"; // Rojo: No voto (0 E14 y no confirmado)
+            bgColor = "FEE2E2";  // Rojo claro: Sin votos
             fontColor = "9C0006";
         }
 
+        // Alternate row tint (lighter) for readability on even rows
+        const altBg = bgColor;
+
         for (let C = range.s.c; C <= range.e.c; ++C) {
-            const address = XLSX.utils.encode_cell({c: C, r: R});
-            if (!ws[address]) continue;
-            ws[address].s = {
-                fill: { patternType: "solid", fgColor: { rgb: bgColor } },
-                font: { color: { rgb: fontColor } }
+            const addr = XLSX.utils.encode_cell({ c: C, r: R });
+            if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+
+            const isNumericCol = C >= 1 && C <= 4;
+            ws[addr].s = {
+                font: { sz: 10, color: { rgb: fontColor }, bold: bold, name: "Calibri" },
+                fill: { patternType: "solid", fgColor: { rgb: altBg } },
+                alignment: {
+                    horizontal: isNumericCol ? "center" : (C === 5 ? "center" : "left"),
+                    vertical: "center",
+                    wrapText: C >= 6  // Wrap text in Referidos and Líderes columns
+                },
+                border: {
+                    top:    { style: "thin", color: { rgb: "D1D5DB" } },
+                    bottom: { style: "thin", color: { rgb: "D1D5DB" } },
+                    left:   { style: "thin", color: { rgb: "D1D5DB" } },
+                    right:  { style: "thin", color: { rgb: "D1D5DB" } },
+                }
             };
         }
     }
