@@ -478,19 +478,20 @@ function applyExcelStyles(ws, d, leaderName) {
         let fontColor = "1E293B";
         let bold = false;
 
-        if (rowData["Confirmación"] === "SÍ") {
-            bgColor = "C6EFCE";  // Verde: Confirmado
+        const real = Number(rowData["Real (Eficacia)"]) || 0;
+        const meta = Number(rowData["Meta"]) || 0;
+        const e14  = Number(rowData["Oficial E14"]) || 0;
+
+        if (e14 >= meta && meta > 0) {
+            bgColor = "C6EFCE";  // 🟢 Verde: Meta cumplida (E14 >= Meta)
             fontColor = "1A5C2A";
             bold = true;
-        } else if (rowData["Real (Eficacia)"] === 0 || rowData["Real (Eficacia)"] === '0') {
-            bgColor = "EDE9FE";  // Morado claro: Real = 0
-            fontColor = "5B21B6";
-        } else if (rowData["Oficial E14"] > 0) {
-            bgColor = "FEF9C3";  // Amarillo suave: Con votos parciales
+        } else if (e14 > 0) {
+            bgColor = "FEF9C3";  // 🟡 Amarillo: Votos parciales (E14 > 0 pero < Meta)
             fontColor = "854D0E";
         } else {
-            bgColor = "FEE2E2";  // Rojo claro: Sin votos
-            fontColor = "9C0006";
+            bgColor = "EDE9FE";  // 🟣 Morado: Sin votos oficiales (E14 = 0)
+            fontColor = "5B21B6";
         }
 
         // Alternate row tint (lighter) for readability on even rows
