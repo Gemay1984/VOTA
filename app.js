@@ -93,6 +93,7 @@ function setupGlobalListeners() {
     ['candidateSelect', 'includePartyToggle', 'filterStatus', 'candidateFilter'].forEach(id => { document.getElementById(id).onchange = renderDashboard; });
     ['filterPuesto', 'filterMesa'].forEach(id => { document.getElementById(id).oninput = renderDashboard; });
     document.getElementById('btnDownloadExcel').onclick = downloadExcel;
+    document.getElementById('btnDownloadAllLeaders').onclick = downloadAllLeadersExcel;
 }
 
 async function syncData() {
@@ -433,14 +434,82 @@ if (!dataE14 || !dataDiaD) return;
     updateDonutChart(g, y, r, gr);
 }
 
+function applyExcelStyles(ws, d) {
+    // Add styles using xlsx-js-style
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    
+    // Header styling
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+        const address = XLSX.utils.encode_cell({c: C, r: 0});
+        if (!ws[address]) continue;
+        ws[address].s = {
+            font: { bold: true, color: { rgb: "FFFFFF" } },
+            fill: { patternType: "solid", fgColor: { rgb: "1E293B" } }, // Dark Slate header
+            alignment: { horizontal: "center" }
+        };
+    }
+
+    // Row styling based on status
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+        const rowData = d[R - 1];
+        if (!rowData) continue;
+        
+        let bgColor = "FFFFFF";
+        let fontColor = "000000";
+
+        if (rowData["Confirmación"] === "SÍ") {
+            bgColor = "C6EFCE"; // Verde: Confirmado
+            fontColor = "006100";
+        } else if (rowData["Oficial E14"] > 0) {
+            bgColor = "FFEB9C"; // Naranja: Con coincidencia
+            fontColor = "9C6500";
+        } else {
+            bgColor = "FFC7CE"; // Rojo: No voto (0 E14 y no confirmado)
+            fontColor = "9C0006";
+        }
+
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+            const address = XLSX.utils.encode_cell({c: C, r: R});
+            if (!ws[address]) continue;
+            ws[address].s = {
+                fill: { patternType: "solid", fgColor: { rgb: bgColor } },
+                font: { color: { rgb: fontColor } }
+            };
+        }
+    }
+}
+
+function getSharedLeadersForMesa(m, candF) {
+    let targetCand = candF;
+    if (selectedLeader !== 'all' && rawData.leaders[selectedLeader]) {
+        targetCand = rawData.leaders[selectedLeader].cand;
+    }
+    const standardKey = m.e14 ? `E14|${m.e14['Zona']}|${m.e14['Lugar (Puesto de Votación)'] || m.e14['Lugar']}|${m.m}` : `RAW|${m.p}|${m.m}`;
+    const globalLids = rawData.globalMesas[standardKey] || [];
+    const filteredLids = globalLids.filter(l => {
+        if (targetCand === 'all') return true;
+        return rawData.leaders[l] && rawData.leaders[l].cand === targetCand;
+    });
+    return filteredLids;
+}
+
 function downloadExcel() {
     if (typeof XLSX === 'undefined' || !currentFilteredMesas.length) return;
     try {
         const cid = document.getElementById('candidateSelect').value, incP = document.getElementById('includePartyToggle').checked;
+        const candF = document.getElementById('candidateFilter').value;
         const d = currentFilteredMesas.map(m => {
             const off = getOff(m.e14, cid, incP);
             const eff = off === null ? 0 : Math.min(m.mergedM, off);
             const voters = m.vots.map(v => `${v.n} (${v.s || 'No Conf.'})`).join(", ");
+            
+            const shared = getSharedLeadersForMesa(m, candF);
+            // remove selected leader from shared string if it's single leader view
+            let shStr = shared;
+            if (selectedLeader !== 'all') {
+                shStr = shared.filter(l => l !== selectedLeader);
+            }
+
             return { 
                 "Puesto": m.p, 
                 "Mesa": m.m, 
@@ -449,58 +518,96 @@ function downloadExcel() {
                 "Oficial E14": off||0, 
                 "Confirmación": m.vots.some(v => v.s) ? "SÍ" : "NO",
                 "Referidos": voters,
-                "Líderes": m.lids.join(", ") 
+                "Líderes (Comparten)": shStr.length > 0 ? shStr.join(", ") : "Ninguno"
             };
         });
         const ws = XLSX.utils.json_to_sheet(d);
+        applyExcelStyles(ws, d);
         
-        // Add styles using xlsx-js-style
-        const range = XLSX.utils.decode_range(ws['!ref']);
-        
-        // Header styling
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-            const address = XLSX.utils.encode_cell({c: C, r: 0});
-            if (!ws[address]) continue;
-            ws[address].s = {
-                font: { bold: true, color: { rgb: "FFFFFF" } },
-                fill: { patternType: "solid", fgColor: { rgb: "1E293B" } }, // Dark Slate header
-                alignment: { horizontal: "center" }
-            };
-        }
-
-        // Row styling based on status
-        for (let R = range.s.r + 1; R <= range.e.r; ++R) {
-            const rowData = d[R - 1];
-            if (!rowData) continue;
-            
-            let bgColor = "FFFFFF";
-            let fontColor = "000000";
-
-            if (rowData["Confirmación"] === "SÍ") {
-                bgColor = "C6EFCE"; // Verde: Confirmado
-                fontColor = "006100";
-            } else if (rowData["Oficial E14"] > 0) {
-                bgColor = "FFEB9C"; // Naranja: Con coincidencia
-                fontColor = "9C6500";
-            } else {
-                bgColor = "FFC7CE"; // Rojo: No voto (0 E14 y no confirmado)
-                fontColor = "9C0006";
-            }
-
-            for (let C = range.s.c; C <= range.e.c; ++C) {
-                const address = XLSX.utils.encode_cell({c: C, r: R});
-                if (!ws[address]) continue;
-                ws[address].s = {
-                    fill: { patternType: "solid", fgColor: { rgb: bgColor } },
-                    font: { color: { rgb: fontColor } }
-                };
-            }
-        }
-
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Reporte");
         XLSX.writeFile(wb, `Reporte_Electoral_${new Date().toISOString().split('T')[0]}.xlsx`);
     } catch (e) { console.error(e); }
+}
+
+function downloadAllLeadersExcel() {
+    if (typeof XLSX === 'undefined' || !rawData) return;
+    try {
+        const candF = document.getElementById('candidateFilter').value;
+        const cid = document.getElementById('candidateSelect').value;
+        const incP = document.getElementById('includePartyToggle').checked;
+        
+        let leadersToExport = [];
+        if (selectedLeader === 'all') {
+            if (candF !== 'all') leadersToExport = rawData.leaderNames.filter(l => rawData.leaders[l].cand === candF);
+            else leadersToExport = rawData.leaderNames;
+        } else {
+            leadersToExport = [selectedLeader];
+        }
+
+        if (leadersToExport.length === 0) {
+            alert("No hay líderes para exportar.");
+            return;
+        }
+
+        const wb = XLSX.utils.book_new();
+
+        leadersToExport.forEach(lid => {
+            const lData = rawData.leaders[lid];
+            if (!lData || !lData.mesas.length) return;
+            
+            const targetCand = lData.cand;
+
+            const d = lData.mesas.map(m => {
+                const off = getOff(m.e14, cid, incP);
+                const eff = off === null ? 0 : Math.min(m.proyectados, off);
+                const voters = m.voters.map(v => `${v.n} (${v.s || 'No Conf.'})`).join(", ");
+                
+                const standardKey = m.e14 ? `E14|${m.e14['Zona']}|${m.e14['Lugar (Puesto de Votación)'] || m.e14['Lugar']}|${m.m}` : `RAW|${m.p}|${m.m}`;
+                const globalLids = rawData.globalMesas[standardKey] || [];
+                const filteredLids = globalLids.filter(l => {
+                    if (targetCand === 'all') return true;
+                    return rawData.leaders[l] && rawData.leaders[l].cand === targetCand;
+                });
+                const shStr = filteredLids.filter(l => l !== lid);
+                
+                return { 
+                    "Puesto": m.p, 
+                    "Mesa": m.m, 
+                    "Meta": m.proyectados, 
+                    "Real (Eficacia)": eff, 
+                    "Oficial E14": off||0, 
+                    "Confirmación": m.voters.some(v => v.s) ? "SÍ" : "NO",
+                    "Referidos": voters,
+                    "Líderes (Comparten)": shStr.length > 0 ? shStr.join(", ") : "Ninguno"
+                };
+            });
+
+            if (d.length === 0) return;
+
+            const ws = XLSX.utils.json_to_sheet(d);
+            applyExcelStyles(ws, d);
+            
+            let safeSheetName = lid.toString().substring(0, 31).replace(/[\\\/\?\*\[\]:\']/g, '');
+            let suffix = 1;
+            let originalName = safeSheetName;
+            while(wb.SheetNames.includes(safeSheetName)) {
+                safeSheetName = originalName.substring(0, 28) + "_" + suffix;
+                suffix++;
+            }
+            
+            XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+        });
+
+        if (wb.SheetNames.length > 0) {
+            XLSX.writeFile(wb, `Reporte_Lideres_${new Date().toISOString().split('T')[0]}.xlsx`);
+        } else {
+            alert("No hay información válida de los líderes para exportar.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error al exportar. Si la lista de líderes es muy grande, intenta filtrar por un candidato.");
+    }
 }
 
 document.addEventListener('DOMContentLoaded', initDashboard);
